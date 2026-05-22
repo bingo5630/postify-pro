@@ -10,7 +10,7 @@ from pyrogram.enums import ParseMode
 import sys
 from datetime import datetime
 
-from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, CHANNEL_ID, PORT, OWNER_ID
+from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, PORT, OWNER_ID
 
 class Bot(Client):
     def __init__(self):
@@ -33,22 +33,6 @@ class Bot(Client):
         self.username = bot_info.username
         self.uptime = datetime.now()
                 
-        try:
-            db_channel = await self.get_chat(CHANNEL_ID)
-
-            if not db_channel.invite_link:
-                db_channel.invite_link = await self.export_chat_invite_link(CHANNEL_ID)
-
-            self.db_channel = db_channel
-            
-            test = await self.send_message(chat_id = db_channel.id, text = "Testing")
-            await test.delete()
-            
-        except Exception as e:
-            self.LOGGER(__name__).warning(e)
-            self.LOGGER(__name__).warning(f"Make Sure bot is Admin in DB Channel and have proper Permissions, So Double check the CHANNEL_ID Value, Current Value {CHANNEL_ID}")
-            self.LOGGER(__name__).info('Bot Stopped..')
-            sys.exit()
 
         self.set_parse_mode(ParseMode.HTML)
         self.LOGGER(__name__).info(f"ᴀᴅᴠᴀɴᴄᴇ ғɪʟᴇ-sʜᴀʀɪɴɢ ʙᴏᴛ ᴡɪᴛʜ ᴛᴏᴋᴇɴ ғᴇᴀᴛᴜʀᴇ V5 ᴍᴀᴅᴇ ʙʏ ➪ @Urr_Sanjiii [Tᴇʟᴇɢʀᴀᴍ Usᴇʀɴᴀᴍᴇ]")
