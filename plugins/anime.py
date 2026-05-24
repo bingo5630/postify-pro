@@ -111,7 +111,11 @@ async def anime_callbacks(client: Client, callback_query: CallbackQuery):
         query = user_data[user_id]['query']
         await callback_query.message.edit_text("Searching...")
 
-        results = await fetch_anime_search(query, source)
+        try:
+            results = await fetch_anime_search(query, source)
+        except Exception as e:
+            return await callback_query.message.edit_text(f"API Error: Could not fetch data. ({e})", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="anime_cancel")]]))
+
         if not results:
             return await callback_query.message.edit_text("No results found. Please try another query.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="anime_cancel")]]))
 
