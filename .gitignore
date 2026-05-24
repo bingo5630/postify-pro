@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/
+*.session
+*.session-journal
+output.log
+filesharingbot.txt

@@ -12,7 +12,6 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from config import OWNER_ID, START_PIC
 from pyrogram import Client, filters
 from databases.database import db 
-from databases.db_verify import get_verify_status
 from plugins.query import *
 
 
@@ -532,59 +531,6 @@ async def handle_reqFsub(client: Client, message: Message):
         await message.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ..\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote><b><i>ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ: @urr_sanjiii</i></b>", reply_markup=reply_markup)
 
 
-@Bot.on_message(filters.command('token') & filters.private & filters.user(OWNER_ID))
-async def set_shortener(client, message):
-    await message.reply_chat_action(ChatAction.TYPING)
-
-    try:
-        # Fetch shortener URL and API key from the database
-        shortener_url = await db.get_shortener_url()  # Fetch the shortener URL
-        shortener_api = await db.get_shortener_api()  # Fetch the shortener API key
-
-        if shortener_url and shortener_api:
-            # If both URL and API key are available, the shortener is considered "Enabled ✅"
-            shortener_status = "ᴇɴᴀʙʟᴇᴅ ✅"
-            mode_button = InlineKeyboardButton('ᴅɪsᴀʙʟᴇ sʜᴏʀᴛɴᴇʀ ❌', callback_data='disable_shortener')
-        else:
-            # If either URL or API key is missing, the shortener is "Disabled ❌"
-            shortener_status = "ᴅɪsᴀʙʟᴇᴅ ❌"
-            mode_button = InlineKeyboardButton('ᴇɴᴀʙʟᴇ sʜᴏʀᴛɴᴇʀ ✅', callback_data='set_shortener_details')
-
-        # Send the settings message with the toggle button and other options
-        await message.reply_photo(
-            photo=START_PIC,
-            caption=(
-                f"<b>𝐒𝐇𝐎𝐑𝐓𝐍𝐄𝐑 𝐒𝐄𝐓𝐓𝐈𝐍𝐆𝐒</b>\n\n"
-                f"» sʜᴏʀᴛɴᴇʀ sᴛᴀᴛᴜs: {shortener_status}\n\n"
-                f"ᴜsᴇ ᴛʜᴇ ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴄᴏɴғɪɢᴜʀᴇ ᴛʜᴇ sʜᴏʀᴛɴᴇʀ sᴇᴛᴛɪɴɢs."
-            ),
-            reply_markup=InlineKeyboardMarkup([
-                [mode_button],
-                [InlineKeyboardButton('Set Site', callback_data='set_shortener_details')],
-                [
-                    InlineKeyboardButton('Settings ⚙️', callback_data='shortener_settings'),
-                    InlineKeyboardButton('🔄 Refresh', callback_data='set_shortener')
-                ],
-                [
-                    InlineKeyboardButton('Set Verified Time ⏱', callback_data='set_verify_time'),
-                    InlineKeyboardButton('Set Tutorial Video 🎥', callback_data='set_tut_video')
-                ],
-                [InlineKeyboardButton('Close ✖️', callback_data='close')]
-            ])
-        )
-    except Exception as e:
-        # Log the error for debugging purposes
-        logging.error(f"Error in set_shortener command: {e}")
-        reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("»  ᴄʟᴏsᴇ  «", callback_data="close")]])
-        await message.reply(
-            (
-                f"❌ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ:\n\n"
-                f"ʀᴇᴀsᴏɴ: {e}\n\n"
-                f"📩 ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ: [𝐒ᴀɴᴊɪ 𝐒aᴍᴀ](https://t.me/urr_sanjiii)"
-            ),
-            reply_markup=reply_markup
-        )
-
 #======================== PREMIUM SYSTEM CALLBACKS ========================#
 
 @Bot.on_callback_query(filters.regex("buy_premium"))
@@ -625,54 +571,9 @@ async def buy_premium_callback(client: Client, query: CallbackQuery):
         await query.edit_message_caption(
             caption=plans_text,
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("👨‍💼 ᴏᴡɴᴇʀ", url="https://t.me/Mugiwaras_Network"),
-                 InlineKeyboardButton("📧 ᴀᴅᴍɪɴ", url="https://t.me/DoraShin_hlo")],
-                [InlineKeyboardButton("◀️ ʙᴀᴄᴋ", callback_data="back_to_token")]
+                [InlineKeyboardButton("👨‍💼 ᴏᴡɴᴇʀ", url="https://t.me/Mugiwaras_Network")]
             ])
         )
     except Exception as e:
         logging.error(f"Error in buy_premium_callback: {e}")
-        await query.answer(f"❌ ᴇʀʀᴏʀ: {str(e)}", show_alert=True)
-
-@Bot.on_callback_query(filters.regex("back_to_token"))
-async def back_to_token_callback(client: Client, query: CallbackQuery):
-    """Go back to token message"""
-    try:
-        user_id = query.from_user.id
-
-        # Get token info
-        VERIFY_EXPIRE = await db.get_verified_time()
-        TUT_VID = await db.get_tut_video()
-        SHORTLINK_URL = await db.get_shortener_url()
-        SHORTLINK_API = await db.get_shortener_api()
-
-        # Get verification status
-        verify_status = await get_verify_status(user_id)
-
-        if not verify_status['is_verified']:
-            token = verify_status.get('verify_token', '')
-            # Create verification link
-            verify_link = f'https://t.me/{client.username}?start=verify_{token}'
-
-            token_pic = "https://envs.sh/ehW.jpg"  # Token picture
-
-            caption = f"<blockquote><b>›› Hey!!, {query.from_user.mention} ~</b></blockquote>\n\n<i>Your Ads token is expired, refresh your token and try again.</i> \n\n<b>Token Timeout:</b> {get_exp_time(VERIFY_EXPIRE)} \n\n<blockquote expandable><b>What is token?</b> \n<i>This is an ads token. If you pass 1 ad, you can use the bot for {get_exp_time(VERIFY_EXPIRE)} after passing the ad.</i></blockquote>"
-
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=token_pic),
-            )
-
-            await query.edit_message_caption(
-                caption=caption,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🎁 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ", callback_data="buy_premium")],
-                    [InlineKeyboardButton("»  ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪғʏ  «", url=verify_link)],
-                    [InlineKeyboardButton("» ʜᴏᴡ ᴛᴏ ᴠᴇʀɪғʏ/ᴛᴜᴛᴏʀɪᴀʟ ᴠɪᴅᴇᴏ «", url=TUT_VID)]
-                ])
-            )
-        else:
-            await query.answer("✅ ʏᴏᴜ ᴀʀᴇ ᴀʟʀᴇᴀᴅʏ ᴠᴇʀɪғɪᴇᴅ!", show_alert=True)
-
-    except Exception as e:
-        logging.error(f"Error in back_to_token_callback: {e}")
         await query.answer(f"❌ ᴇʀʀᴏʀ: {str(e)}", show_alert=True)

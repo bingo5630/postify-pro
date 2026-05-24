@@ -85,10 +85,6 @@ async def is_userJoin(client, user_id, channel_id):
 #=============================================================================================================================================================================
 
 
-async def get_shortlink(url, api, link):
-    shortzy = Shortzy(api_key=api, base_site=url)
-    link = await shortzy.convert(link)
-    return link
 
 async def encode(string):
     try:

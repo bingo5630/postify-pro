@@ -21,12 +21,10 @@ from helper_func import *
 from databases.database import *
 from plugins.FORMATS import *
 from databases.database import db
-from databases.db_verify import *
 from config import *
 from pyrogram.errors.exceptions.bad_request_400 import PeerIdInvalid
 from datetime import datetime, timedelta
 from pytz import timezone
-
 
 # +++ ᴜɪ ʙʏ ᴀʜᴍᴇᴅ [telegram username: @ᴜʀʀ_sᴀɴᴊɪɪɪ] +++
 
@@ -46,12 +44,7 @@ async def start_command(client: Client, message: Message):
     last_message = None
     messages = []
 
-    VERIFY_EXPIRE = await db.get_verified_time()  # Fetch verification expiration time
-    SHORTLINK_URL = await db.get_shortener_url()
-    SHORTLINK_API = await db.get_shortener_api()
-    TUT_VID = await db.get_tut_video()
     ADMINS = await db.get_all_admins()
-    MIN_VERIFY_TIME = 45  # Minimum time (in seconds) before verification
 
     logging.info(f"Received /start command from user ID: {id}")
 
@@ -62,98 +55,6 @@ async def start_command(client: Client, message: Message):
         except Exception as e:
             logging.error(f"Error adding user: {e}")
             return
-
-    text = message.text
-
-    # Check if user is an admin and treat them as verified
-    if id in ADMINS:
-        verify_status = {
-            'is_verified': True,
-            'verify_token': None,  # Admins don't need a token
-            'verified_time': time.time(),
-            'link': ""
-        }
-    else:
-        verify_status = await get_verify_status(id)
-
-    # Check if user is premium - premium users don't need token verification
-    is_premium = await db.is_premium_user(id)
-    if is_premium:
-        verify_status = {
-            'is_verified': True,
-            'verify_token': None,  # Premium users don't need a token
-            'verified_time': time.time(),
-            'link': ""
-        }
-    #verify_status = await get_verify_status(id)
-
-
-# Main token verification logic
-    if SHORTLINK_URL:
-    # Check if token has expired
-        if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
-            await update_verify_status(id, is_verified=False)
-            logging.info(f"User {id} token expired, verification reset.")
-
-        if "verify_" in message.text:
-            _, token = message.text.split("_", 1)
-            logging.info(f"User {id} entered token: {token}")
-
-            stored_token = verify_status.get('verify_token', None)
-            generated_time = await get_generated_time(id)  # Fetch generated_time from vers_data
-
-            logging.info(f"» sᴛᴏʀᴇᴅ ᴛᴏᴋᴇɴ : {stored_token}, » ɢᴇɴᴇʀᴀᴛᴇᴅ ᴛɪᴍᴇ : {generated_time}")
-
-            if not stored_token or stored_token != token:
-                logging.warning(f"ᴜsᴇʀ {id} ᴇɴᴛᴇʀᴇᴅ ɪɴᴠᴀʟɪᴅ ᴛᴏᴋᴇɴ : {token}")
-                return await message.reply("<blockquote>ʏᴏᴜʀ ᴛᴏᴋᴇɴ ɪs ɪɴᴠᴀʟɪᴅ ᴏʀ ᴇxᴘɪʀᴇᴅ. ᴛʀʏ ᴀɢᴀɪɴ ʙʏ ᴄʟɪᴄᴋɪɴɢ /start</blockquote>")
-
-        # Ensure the token is at least 40 seconds old before verification
-            if not generated_time or (time.time() - generated_time) < MIN_VERIFY_TIME:
-                remaining_time = int(MIN_VERIFY_TIME - (time.time() - generated_time))
-                logging.warning(f"ᴜsᴇʀ {id} ᴛʀɪᴇᴅ ᴛᴏ ᴠᴇʀɪғʏ ᴛᴏᴏ ᴇᴀʀʟʏ. ʀᴇᴍᴀɪɴɪɴɢ ᴛɪᴍᴇ : {remaining_time} sec")
-                return await message.reply_video(
-			video = "https://envs.sh/ekQ.mp4",
-			caption = "<blockquote><b>🚨 Bʏᴘᴀss Aᴛᴛᴇᴍᴘᴛ Dᴇᴛᴇᴄᴛᴇᴅ! 🚨</blockquote>\n\n» ᴡᴀʀɴɪɴɢ...!!!</b> ʏᴏᴜ ᴍᴜsᴛ ʀᴇsᴏʟᴠᴇ ᴛʜᴇ ʟɪɴᴋ ᴛᴏ ᴀᴄᴄᴇss ᴛʜᴇ ғɪʟᴇ. ɴᴏ sʜᴏʀᴛᴄᴜᴛs, ɴᴏ ᴛʀɪᴄᴋs! ᴀɴʏ ᴀᴛᴛᴇᴍᴘᴛ ᴛᴏ ʙʏᴘᴀss ᴛʜᴇ sʏsᴛᴇᴍ ᴡɪʟʟ ᴛʀɪɢɢᴇʀ ᴀɴ ɪɴsᴛᴀɴᴛ ʙᴀɴ! 🚫🔥",
-		        reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ᴛᴏ ᴠᴇʀɪғʏ ᴀɢᴀɪɴ  •", url=f"https://t.me/{client.username}?start=start")],
-                    [InlineKeyboardButton("• ᴛᴜᴛᴏʀɪᴀʟ ᴠɪᴅᴇᴏ", url=TUT_VID),
-		    InlineKeyboardButton("ᴅᴇᴠʟᴏᴘᴇʀ •", url = "https://t.me/DoraShin_hlo") ]
-                ])
-		)
-
-        # If token is valid and has waited long enough, verify user
-            await update_verify_status(id, is_verified=True, verified_time=time.time())
-            logging.info(f"User {id} successfully verified with token: {token}")
-
-            return await message.reply(
-                f"<blockquote>» ᴄᴏɴɢʀᴀᴛᴜʟᴀᴛɪᴏɴs !!, 🥳🥳\n\n»ʏᴏᴜʀ ᴛᴏᴋᴇɴ ʜᴀs ʙᴇᴇɴ sᴜᴄᴄᴇssғᴜʟʟʏ ᴠᴇʀɪғɪᴇᴅ ᴀɴᴅ ɴᴏᴡ ᴠᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}\n\n» ɴᴏᴡ ʏᴏᴜ <a href='https://t.me/Mugiwaras_Network'>ɢᴇᴛ ᴀᴄᴇss ᴛᴏ ᴀʟʟ 4 ʙᴏᴛs</a> ᴏғ @HellFire_Academy_Official ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}.</blockquote>",
-                protect_content=False,
-                quote=True,
-		disable_web_page_preview=True
-            )
-
-        if not verify_status['is_verified']:
-            token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
-            generated_time = time.time()
-
-            await update_verify_status(id, verify_token=token, link="")
-            await store_generated_time(id, generated_time)  # Store generated time separately
-
-            logging.info(f"ɴᴇᴡ ᴛᴏᴋᴇɴ ɢᴇɴᴇʀᴀᴛᴇᴅ ғᴏʀ ᴜsᴇʀ {id}: {token}")
-
-            link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, f'https://telegram.dog/{client.username}?start=verify_{token}')
-            logging.info(f"Verification link for user {id}: {link}")
-
-            return await message.reply_photo(
-                photo=TOKEN_PIC,
-                caption=f"<blockquote><b>›› Hey!!, {message.from_user.mention} ~</b></blockquote>\n\n<i>Your Ads token is expired, refresh your token and try again.</i> \n\n<b>Token Timeout:</b> {get_exp_time(VERIFY_EXPIRE)} \n\n<blockquote expandable><b>What is token?</b> \n<i>Yeh ads token hai. agar tum ek ad pass karoge, tum bot ko kareeb {get_exp_time(VERIFY_EXPIRE)} itne time tak freely use kar sakte ho.</i>\n\nHone baad tumhe <a href='https://t.me/HellFire_Academy_Official'>saare 4 bots par access mil jayega</a> for {get_exp_time(VERIFY_EXPIRE)} jo ki ⬇️\n\n» @Mihawk_Flux_Bot\n» @Monkey_D_Luffy_File_bot\n» @MakimaShare_Bot\n» @Raiden_Shogun_File_Bot\n\n<b>APPLE/IPHONE USERS COPY TOKEN LINK AND OPEN IN CHROME BROWSER</b></blockquote>",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("»  ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪғʏ  «", url=link)],
-                    [InlineKeyboardButton("» ʜᴏᴡ ᴛᴏ ᴠᴇʀɪғʏ/ᴛᴜᴛᴏʀɪᴀʟ ᴠɪᴅᴇᴏ «", url=TUT_VID)],
-                    [InlineKeyboardButton("🎁 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ 🔖", callback_data="plan")]
-                ])
-            )
 
     text = message.text        
     if len(text)>7:
