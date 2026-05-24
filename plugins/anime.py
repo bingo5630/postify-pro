@@ -1,3 +1,4 @@
+from bot import Bot
 import re
 import math
 import asyncio
@@ -64,7 +65,7 @@ async def fetch_anime_search(query, source="anilist"):
                 return data['data']['Page']['media']
     return []
 
-@Client.on_message(filters.command("anime") & filters.private)
+@Bot.on_message(filters.command("anime") & filters.private)
 async def anime_cmd(client: Client, message: Message):
     if len(message.command) < 2:
         return await message.reply_text("Please provide an anime name to search. Example: `/anime Naruto`")
@@ -92,7 +93,7 @@ async def anime_cmd(client: Client, message: Message):
 
     await message.reply_text(f"SELECT SOURCE FOR: {query}", reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"^anime_"))
+@Bot.on_callback_query(filters.regex(r"^anime_"))
 async def anime_callbacks(client: Client, callback_query: CallbackQuery):
     data = callback_query.data
     user_id = callback_query.from_user.id
