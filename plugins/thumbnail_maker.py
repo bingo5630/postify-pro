@@ -81,7 +81,7 @@ async def generate_poster(anime_img_url, title, genres, synopsis, username, logo
         # Resize mask to template size
         hex_mask = hex_mask.resize(template.size, Image.Resampling.LANCZOS)
         # Extract the alpha channel as 'L'
-        alpha_mask = hex_mask.split()[-1]
+        alpha_mask = hex_mask.convert('L')
     except Exception as e:
         # Fallback to white area if the transparent one is missing
         alpha_mask = Image.new('L', template.size, 0)
@@ -153,12 +153,11 @@ async def generate_poster(anime_img_url, title, genres, synopsis, username, logo
     brand_y = 60
     if logo_img:
         logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS)
-        # Create circular mask for logo
-        circle_mask = Image.new('L', (80, 80), 0)
-        circle_draw = ImageDraw.Draw(circle_mask)
-        circle_draw.ellipse((0, 0, 80, 80), fill=255)
-        logo_img.putalpha(circle_mask)
-        final_img.paste(logo_img, (brand_x, brand_y), logo_img)
+        # Remove solid background dynamically using Grayscale mask
+        grayscale_mask = logo_img.convert('L')
+        rgba_logo = logo_img.convert('RGBA')
+        rgba_logo.putalpha(grayscale_mask)
+        final_img.paste(rgba_logo, (brand_x, brand_y), rgba_logo)
         brand_x += 100
         brand_y += 15
 

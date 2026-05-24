@@ -13,22 +13,29 @@ MAIN_SETTINGS_TEXT = """I'M AN AUTO POST MAKER & AND THUMB MAKER BOT, BUILT WITH
 
 ≡ CLICK BELOW BUTTONS TO CHANGE OR SET ITS CAPTION, BUTTONS AND TEMPLATE:"""
 
-ANIME_SETTINGS_TEXT = """• TEMPLATE: animeposter8
-• BRANDING: FOR MORE VISIT @ANIME_VERSE
-• BUTTONS:
-  🔸 JOIN NOW TO WATCH ▾ - {link}
+def get_anime_settings_text(current_template="animeposter8", current_branding="FOR MORE VISIT @ANIME_VERSE", current_buttons="🔸 JOIN NOW TO WATCH ▾ - {link}"):
+    return f"""<blockquote expandable><b>❝ ᴀɴɪᴍᴇ sᴇᴛᴛɪɴɢs</b></blockquote>
 
-• CAPTION:
-HTML
-<b>{title}</b>
+• <b>ᴛᴇᴍᴘʟᴀᴛᴇ:</b> {current_template}
+• <b>ʙʀᴀɴᴅɪɴɢ:</b> {current_branding}
+• <b>ʙᴜᴛᴛᴏɴs:</b>
+<pre>{current_buttons}</pre>
 
-» Type: <code>{type}</code>
-» Average Rating: <code>{rating}</code>
-» Status: <code>{status}</code>
-» Episodes: <code>{episodes}</code>
-» Genre: {genres}
+• <b>ᴄᴀᴘᴛɪᴏɴ:</b>
+<pre><code class="language-html">HTML
 
-<blockquote expandable>➤ Synopsis: {plot}</blockquote>"""
+&lt;b&gt;{{title}}&lt;/b&gt;
+
+» Type: &lt;code&gt;{{type}}&lt;/code&gt;
+» Average Rating: &lt;code&gt;{{rating}}&lt;/code&gt;
+» Status: &lt;code&gt;{{status}}&lt;/code&gt;
+» Episodes: &lt;code&gt;{{episodes}}&lt;/code&gt;
+» Genre: {{genres}}
+
+&lt;blockquote expandable&gt;➤ Synopsis: {{plot}}&lt;/blockquote&gt;</code></pre>
+
+<blockquote><b>⧗ sᴇᴛ ᴛʜᴇ ғᴏʟʟᴏᴡɪɴɢ ᴏᴘᴛɪᴏɴs: ❞</b></blockquote>"""
+
 
 CAPTION_TEXT = """CURRENT CAPTION FORMAT:
 
@@ -121,7 +128,7 @@ async def anime_settings_cb(client: Client, query: CallbackQuery):
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="settings_main")]
     ])
     try:
-        await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + ANIME_SETTINGS_TEXT), reply_markup=keyboard)
+        await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + get_anime_settings_text()), reply_markup=keyboard)
     except:
         pass
 
