@@ -9,29 +9,10 @@ ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 
 TEMPLATE_PATH = os.path.join(ASSETS_DIR, "template.png")
-# We assume hex_mask.png is already created by our analysis step and placed in ASSETS_DIR.
-# For robustness, if it doesn't exist, we will create it on the fly.
-HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
+HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask_remote.png")
 
 FONT_TITLE = os.path.join(FONTS_DIR, "Montserrat-Black.ttf")
 FONT_BODY = os.path.join(FONTS_DIR, "Roboto-Medium.ttf")
-
-def get_hex_mask():
-    if os.path.exists(HEX_MASK_PATH):
-        return Image.open(HEX_MASK_PATH).convert('L')
-
-    img = Image.open(TEMPLATE_PATH).convert('RGBA')
-    mask = Image.new('L', img.size, 0)
-    pixels = img.load()
-    mask_pixels = mask.load()
-
-    for y in range(img.height):
-        for x in range(img.width):
-            r, g, b, a = pixels[x, y]
-            if x > 800 and r > 240 and g > 240 and b > 240:
-                mask_pixels[x, y] = 255
-    mask.save(HEX_MASK_PATH)
-    return mask
 
 def crop_image(img, target_size, crop_state):
     """
@@ -64,7 +45,7 @@ def crop_image(img, target_size, crop_state):
     return img.resize(target_size, Image.Resampling.LANCZOS)
 
 def apply_small_caps(text):
-    # Simple small caps mapping for A-Z
+    if not text: return text
     normal = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     smallcaps = "ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ"
     trans = str.maketrans(normal, smallcaps)
@@ -73,9 +54,12 @@ def apply_small_caps(text):
 async def generate_poster(anime_img_url, title, genres, synopsis, username, logo_url=None, crop_state=0, small_caps=False):
     # Fetch anime image
     async with aiohttp.ClientSession() as session:
-        async with session.get(anime_img_url) as resp:
-            anime_img_data = await resp.read()
-            anime_img = Image.open(io.BytesIO(anime_img_data)).convert('RGBA')
+        try:
+            async with session.get(anime_img_url) as resp:
+                anime_img_data = await resp.read()
+                anime_img = Image.open(io.BytesIO(anime_img_data)).convert('RGBA')
+        except Exception:
+            anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
         # Fetch logo if provided
         logo_img = None
@@ -86,28 +70,38 @@ async def generate_poster(anime_img_url, title, genres, synopsis, username, logo
                         logo_data = await resp.read()
                         logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
             except Exception as e:
-                print(f"Failed to fetch logo: {e}")
+                pass
 
     # Load template and mask
     template = Image.open(TEMPLATE_PATH).convert('RGBA')
-    hex_mask = get_hex_mask()
 
-    # Get mask bounding box to know exact size of the masked area
-    bbox = hex_mask.getbbox()
-    if not bbox:
-        bbox = (0, 0, template.width, template.height)
+    try:
+        # Load the transparent mask provided by user
+        hex_mask = Image.open(HEX_MASK_PATH).convert('RGBA')
+        # Resize mask to template size
+        hex_mask = hex_mask.resize(template.size, Image.Resampling.LANCZOS)
+        # Extract the alpha channel as 'L'
+        alpha_mask = hex_mask.split()[-1]
+    except Exception as e:
+        # Fallback to white area if the transparent one is missing
+        alpha_mask = Image.new('L', template.size, 0)
+        pixels = template.load()
+        mask_pixels = alpha_mask.load()
+        for y in range(template.height):
+            for x in range(template.width):
+                r, g, b, a = pixels[x, y]
+                if x > 800 and r > 240 and g > 240 and b > 240:
+                    mask_pixels[x, y] = 255
 
-    # We resize the anime image to cover the entire template area for simplicity,
-    # but strictly crop it to the template aspect ratio first.
+    # Crop anime img
     cropped_anime = crop_image(anime_img, template.size, crop_state)
 
-    # Create an empty image for the masked anime
-    masked_anime = Image.new('RGBA', template.size, (0, 0, 0, 0))
-    masked_anime.paste(cropped_anime, (0, 0))
-    masked_anime.putalpha(hex_mask)
+    # Put alpha
+    cropped_anime.putalpha(alpha_mask)
 
-    # Composite the masked anime onto the template
-    final_img = Image.alpha_composite(template, masked_anime)
+    # Paste onto template using mask
+    final_img = template.copy()
+    final_img.paste(cropped_anime, (0, 0), alpha_mask)
 
     draw = ImageDraw.Draw(final_img)
 
@@ -120,7 +114,6 @@ async def generate_poster(anime_img_url, title, genres, synopsis, username, logo
 
     # Title
     font_title = ImageFont.truetype(FONT_TITLE, 80)
-    # Wrap title
     wrapped_title = textwrap.fill(title, width=20)
     title_lines = wrapped_title.split('\n')
 
