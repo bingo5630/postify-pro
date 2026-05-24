@@ -26,7 +26,6 @@ from pyrogram.errors.exceptions.bad_request_400 import PeerIdInvalid
 from datetime import datetime, timedelta
 from pytz import timezone
 
-
 # +++ ᴜɪ ʙʏ ᴀʜᴍᴇᴅ [telegram username: @ᴜʀʀ_sᴀɴᴊɪɪɪ] +++
 
 # Track (user_id, link_param) pairs who already saw /byt forcesub for a specific link
@@ -35,6 +34,17 @@ byt_fsub_seen = set()
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
+
+    # Default initialization
+    AUTO_DEL = False
+    DEL_TIMER = 0
+    HIDE_CAPTION = False
+    CHNL_BTN = None
+    PROTECT_MODE = False
+    last_message = None
+    messages = []
+
+    ADMINS = await db.get_all_admins()
 
     logging.info(f"Received /start command from user ID: {id}")
 
@@ -46,9 +56,12 @@ async def start_command(client: Client, message: Message):
             logging.error(f"Error adding user: {e}")
             return
 
-
     text = message.text        
     if len(text)>7:
+        await message.delete()
+
+        # If /byt buttons are added, show byt forcesub ONCE per link
+        # Track by (user_id, link_param) so same link = no repeat, new link = show again
         try:
             link_param = text.split(" ", 1)[1] if len(text.split(" ", 1)) > 1 else None
         except:
@@ -80,31 +93,107 @@ async def start_command(client: Client, message: Message):
                         reply_markup=InlineKeyboardMarkup(byt_buttons),
                         message_effect_id=5104841245755180586
                     )
-                    return
+                    return  # Stop here - user must click 'now click here' again to get files
+                # If already seen for this link, just continue to deliver files
         except Exception as e:
             logging.info(f"Error sending /byt force-sub message: {e}")
 
-    reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
-                [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
-                 InlineKeyboardButton(' ᴅᴇᴠᴇʟᴏᴘᴇʀ •', url='https://t.me/DoraShin_hlo')],
-                [InlineKeyboardButton("• ᴏᴜʀ ᴄᴏᴍᴍᴜɴɪᴛʏ •", url='https://t.me/Mugiwaras_Network')],
-            ])
-    await message.reply_photo(
-        photo = random.choice(PICS),
-        caption = START_MSG.format(
-            first = message.from_user.first_name,
-            last = message.from_user.last_name,
-            username = None if not message.from_user.username else '@' + message.from_user.username,
-            mention = message.from_user.mention,
-            id = message.from_user.id
-        ),
-        reply_markup = reply_markup,
+        try: base64_string = text.split(" ", 1)[1]
+        except: return
+
+        string = await decode(base64_string)
+        if not string:  # Check if decode failed
+            return
+        argument = string.split("-")
+
+        if len(argument) == 3:
+            try:
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+            except:
+                return
+
+            if start <= end:
+                ids = range(start,end+1)
+            else:
+                ids = []
+                i = start
+                while True:
+                    ids.append(i)
+                    i -= 1
+                    if i < end:
+                        break
+
+        elif len(argument) == 2:
+            try: ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+            except: return
+
+        last_message = None
+        await message.reply_chat_action(ChatAction.UPLOAD_DOCUMENT)
+
+        try: messages = await get_messages(client, ids)
+        except: return await message.reply("<b><i>sᴏᴍᴇᴛʜɪɴɢ ᴡᴇɴᴛ ᴡʀᴏɴɢ..!</i></b>")
+
+        AUTO_DEL, DEL_TIMER, HIDE_CAPTION, CHNL_BTN, PROTECT_MODE = await asyncio.gather(db.get_auto_delete(), db.get_del_timer(), db.get_hide_caption(), db.get_channel_button(), db.get_protect_content())
+        if CHNL_BTN: button_name, button_link = await db.get_channel_button_link()
+
+        for idx, msg in enumerate(messages):
+            if bool(CUSTOM_CAPTION) & bool(msg.document):
+                caption = CUSTOM_CAPTION.format(previouscaption = "" if not msg.caption else msg.caption.html, filename = msg.document.file_name)
+
+            elif HIDE_CAPTION and (msg.document or msg.audio):
+                caption = ""
+
+            else:
+                caption = "" if not msg.caption else msg.caption.html
+
+            if CHNL_BTN:
+                reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(text=button_name, url=button_link)]]) if msg.document or msg.photo or msg.video or msg.audio else None
+            else:
+                reply_markup = msg.reply_markup
+
+            try:
+                copied_msg = await msg.copy(chat_id=id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_MODE)
+                await asyncio.sleep(0.1)
+
+                if AUTO_DEL:
+                    asyncio.create_task(delete_message(copied_msg, DEL_TIMER))
+                    if idx == len(messages) - 1: last_message = copied_msg
+
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                copied_msg = await msg.copy(chat_id=id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=PROTECT_MODE)
+                await asyncio.sleep(0.1)
+
+                if AUTO_DEL:
+                    asyncio.create_task(delete_message(copied_msg, DEL_TIMER))
+                    if idx == len(messages) - 1: last_message = copied_msg
+
+        if AUTO_DEL and last_message:
+                asyncio.create_task(auto_del_notification(client.username, last_message, DEL_TIMER, message.command[1]))
+
+    else:
+        reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
+                    [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
+                     InlineKeyboardButton(' ᴅᴇᴠᴇʟᴏᴘᴇʀ •', url='https://t.me/DoraShin_hlo')],
+                    [InlineKeyboardButton("• ᴏᴜʀ ᴄᴏᴍᴍᴜɴɪᴛʏ •", url='https://t.me/Mugiwaras_Network')],
+                ])
+        await message.reply_photo(
+            photo = random.choice(PICS),
+            caption = START_MSG.format(
+                first = message.from_user.first_name,
+                last = message.from_user.last_name,
+                username = None if not message.from_user.username else '@' + message.from_user.username,
+                mention = message.from_user.mention,
+                id = message.from_user.id
+            ),
+            reply_markup = reply_markup,
 		has_spoiler = True,
 	        message_effect_id=5104841245755180586 #🔥
-    )
-    try: await message.delete()
-    except: pass
+        )
+        try: await message.delete()
+        except: pass
 
    
 ##===================================================================================================================##

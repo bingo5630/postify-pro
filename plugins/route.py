@@ -14,3 +14,8 @@ async def index(request):
 async def health(request):
     """Health check endpoint"""
     return web.json_response({"status": "ok", "message": "Bot is healthy"})
+
+async def web_server():
+    app = web.Application()
+    app.add_routes(routes)
+    return app

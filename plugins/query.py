@@ -533,240 +533,58 @@ async def cb_handler(client: Bot, query: CallbackQuery):
                 print(
                     f"! Error Occurred on callback data = 'more_settings' : {e}")
 
-    elif data == 'clear_users':
-        # if await authoUser(query, query.from_user.id, owner_only=True) :
-        # await query.answer("♻️ Qᴜᴇʀʏ Pʀᴏᴄᴇssɪɴɢ....")
-        try:
-            REQFSUB_CHNLS = await db.get_reqChannel()
-            if not REQFSUB_CHNLS:
-                return await query.answer("ᴇᴍᴘᴛʏ ʀᴇǫᴜᴇsᴛ ғᴏʀᴄᴇ-sᴜʙ ᴄʜᴀɴɴᴇʟ !?", show_alert=True)
+        id = query.from_user.id
 
-            await query.answer("♻️ Qᴜᴇʀʏ Pʀᴏᴄᴇssɪɴɢ...!!!")
+        if await authoUser(query, id, owner_only=True):
+            await query.answer("♻️ Processing Request...!!!")
 
-            REQFSUB_CHNLS = list(map(str, REQFSUB_CHNLS))
-            buttons = [REQFSUB_CHNLS[i:i + 2]
-                       for i in range(0, len(REQFSUB_CHNLS), 2)]
-            buttons.insert(0, ['CANCEL'])
-            buttons.append(['DELETE ALL CHANNELS USER'])
+            try:
+                # Fetch the current verified time from the database
+                current_verify_time = await db.get_verified_time()
+                time_display = f"{current_verify_time} sᴇᴄᴏɴᴅs" if current_verify_time else "ɴᴏᴛ sᴇᴛ"
 
-            user_reply = await client.ask(query.from_user.id, text=CLEAR_USERS_TXT, reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True))
+                # Prompt the user to input a new verified time
+                set_msg = await client.ask(
+                    chat_id=id,
+                    text=(
+                        f"<b><blockquote>» Current Timer: {time_display}</blockquote>\n\n"
+                        f"To change the timer, please send a valid number in seconds within 1 minute.\n\n"
+                        f"<blockquote>For example: <code>300</code>, <code>600</code>, <code>900</code></blockquote></b>"
+                    ),
+                    timeout=60
+                )
 
-            if user_reply.text == 'CANCEL':
-                return await user_reply.reply("<b>🆑 ᴄᴀɴᴄᴇʟʟᴇᴅ...!!!</b>", reply_markup=ReplyKeyboardRemove())
+                # Validate the user input
+                verify_time_input = set_msg.text.strip()
+                if verify_time_input.isdigit():
+                    verify_time = int(verify_time_input)
 
-            elif user_reply.text in REQFSUB_CHNLS:
-                try:
-                    await db.clear_reqSent_user(int(user_reply.text))
-                    return await user_reply.reply(f"<b><blockquote>✅ ᴜsᴇʀ ᴅᴀᴛᴀ sᴜᴄᴄᴇssғᴜʟʟʏ ᴄʟᴇᴀʀᴇᴅ ғʀᴏᴍ ᴄʜᴀɴɴᴇʟ ɪᴅ: <code>{user_reply.text}</code></blockquote></b>", reply_markup=ReplyKeyboardRemove())
-                except Exception as e:
-                    return await user_reply.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ...\n\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>", reply_markup=ReplyKeyboardRemove())
+                    # Save the new verified time to the database
+                    await db.set_verified_time(verify_time)
+                    formatted_time = f"{verify_time} sᴇᴄᴏɴᴅs"
 
-            elif user_reply.text == 'DELETE ALL CHANNELS USER':
-                try:
-                    for CHNL in REQFSUB_CHNLS:
-                        await db.clear_reqSent_user(int(CHNL))
-                    return await user_reply.reply(f"<b><blockquote>✅ ᴜsᴇʀ ᴅᴀᴛᴀ sᴜᴄᴄᴇssғᴜʟʟʏ ᴄʟᴇᴀʀᴇᴅ ғʀᴏᴍ ᴀʟʟ ᴄʜᴀɴɴᴇʟ ɪᴅs</blockquote></b>", reply_markup=ReplyKeyboardRemove())
-                except Exception as e:
-                    return await user_reply.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ...\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>", reply_markup=ReplyKeyboardRemove())
+                    # Confirm the update to the user
+                    await set_msg.reply(
+                        f"<b>Timer updated successfully ✅\n\n"
+                        f"<blockquote>» Current Timer: {formatted_time}</blockquote></b>"
+                    )
+                else:
+                    # Handle invalid input
+                    markup = [[InlineKeyboardButton('• ᴄʟɪᴄᴋ ᴛᴏ sᴇᴛ ᴠᴇʀɪғʏ ᴛɪᴍᴇʀ •', callback_data='set_verify_time')]]
+                    return await set_msg.reply(
+                        "<b>Please send a valid number in seconds.\n\n"
+                        "<blockquote>For example: <code>300</code>, <code>600</code>, <code>900</code></blockquote>\n\n"
+                        "Try again by clicking the button below...!!!</b>",
+                        reply_markup=InlineKeyboardMarkup(markup)
+                    )
 
-            else:
-                return await user_reply.reply(f"<b><blockquote>INVALID SELECTIONS</blockquote></b>", reply_markup=ReplyKeyboardRemove())
-
-        except Exception as e:
-            print(f"! Error Occurred on callback data = 'clear_users' : {e}")
-
-    elif data == 'clear_chnls':
-        # if await authoUser(query, query.from_user.id, owner_only=True)
-
-        try:
-            REQFSUB_CHNLS = await db.get_reqChannel()
-            if not REQFSUB_CHNLS:
-                return await query.answer("ᴇᴍᴘᴛʏ ʀᴇǫᴜᴇsᴛ ғᴏʀᴄᴇ-sᴜʙ ᴄʜᴀɴɴᴇʟ !?", show_alert=True)
-
-            await query.answer("♻️ Qᴜᴇʀʏ Pʀᴏᴄᴇssɪɴɢ....!!!")
-
-            REQFSUB_CHNLS = list(map(str, REQFSUB_CHNLS))
-            buttons = [REQFSUB_CHNLS[i:i + 2]
-                       for i in range(0, len(REQFSUB_CHNLS), 2)]
-            buttons.insert(0, ['CANCEL'])
-            buttons.append(['DELETE ALL CHANNEL IDS'])
-
-            user_reply = await client.ask(query.from_user.id, text=CLEAR_CHNLS_TXT, reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True))
-
-            if user_reply.text == 'CANCEL':
-                return await user_reply.reply("<b>🆑 ᴄᴀɴᴄᴇʟʟᴇᴅ...!!!</b>", reply_markup=ReplyKeyboardRemove())
-
-            elif user_reply.text in REQFSUB_CHNLS:
-                try:
-                    chnl_id = int(user_reply.text)
-
-                    await db.del_reqChannel(chnl_id)
-
-                    try:
-                        await client.revoke_chat_invite_link(chnl_id, await db.get_stored_reqLink(chnl_id))
-                    except BaseException:
-                        pass
-
-                    await db.del_stored_reqLink(chnl_id)
-
-                    return await user_reply.reply(f"<b><blockquote><code>{user_reply.text}</code> ᴄʜᴀɴɴᴇʟ ɪᴅ ᴀʟᴏɴɢ ᴡɪᴛʜ ɪᴛs ᴅᴀᴛᴀ sᴜᴄᴄᴇssғᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ ✅</blockquote></b>", reply_markup=ReplyKeyboardRemove())
-                except Exception as e:
-                    return await user_reply.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ...\n\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>", reply_markup=ReplyKeyboardRemove())
-
-            elif user_reply.text == 'DELETE ALL CHANNEL IDS':
-                try:
-                    for CHNL in REQFSUB_CHNLS:
-                        chnl = int(CHNL)
-
-                        await db.del_reqChannel(chnl)
-
-                        try:
-                            await client.revoke_chat_invite_link(chnl, await db.get_stored_reqLink(chnl))
-                        except BaseException:
-                            pass
-
-                        await db.del_stored_reqLink(chnl)
-
-                    return await user_reply.reply(f"<b><blockquote>ᴀʟʟ ᴄʜᴀɴɴᴇʟ ɪᴅs ᴀʟᴏɴɢ ᴡɪᴛʜ ɪᴛs ᴅᴀᴛᴀ sᴜᴄᴄᴇssғᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ ✅</blockquote></b>", reply_markup=ReplyKeyboardRemove())
-
-                except Exception as e:
-                    return await user_reply.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ...\n\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>", reply_markup=ReplyKeyboardRemove())
-
-            else:
-                return await user_reply.reply(f"<b><blockquote>INVALID SELECTIONS</blockquote></b>", reply_markup=ReplyKeyboardRemove())
-
-        except Exception as e:
-            print(f"! Error Occurred on callback data = 'more_settings' : {e}")
-
-    elif data == 'clear_links':
-        # if await authoUser(query, query.from_user.id, owner_only=True) :
-        # await query.answer("♻️ Qᴜᴇʀʏ Pʀᴏᴄᴇssɪɴɢ....")
-
-        try:
-            REQFSUB_CHNLS = await db.get_reqLink_channels()
-            if not REQFSUB_CHNLS:
-                return await query.answer("ɴᴏ sᴛᴏʀᴇᴅ ʀᴇǫᴜᴇsᴛ ʟɪɴᴋ ᴀᴠᴀɪʟᴀʙʟᴇ !?", show_alert=True)
-
-            await query.answer("♻️ Qᴜᴇʀʏ Pʀᴏᴄᴇssɪɴɢ....!!!")
-
-            REQFSUB_CHNLS = list(map(str, REQFSUB_CHNLS))
-            buttons = [REQFSUB_CHNLS[i:i + 2]
-                       for i in range(0, len(REQFSUB_CHNLS), 2)]
-            buttons.insert(0, ['CANCEL'])
-            buttons.append(['DELETE ALL REQUEST LINKS'])
-
-            user_reply = await client.ask(query.from_user.id, text=CLEAR_LINKS_TXT, reply_markup=ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True))
-
-            if user_reply.text == 'CANCEL':
-                return await user_reply.reply("<b>🆑 ᴄᴀɴᴄᴇʟʟᴇᴅ...</b>", reply_markup=ReplyKeyboardRemove())
-
-            elif user_reply.text in REQFSUB_CHNLS:
-                channel_id = int(user_reply.text)
-                try:
-                    try:
-                        await client.revoke_chat_invite_link(channel_id, await db.get_stored_reqLink(channel_id))
-                    except BaseException:
-                        text = """<b>❌ ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴠᴏᴋᴇ ʟɪɴᴋ !
-<blockquote expandable>ɪᴅ: <code>{}</code></b>
-
-» ᴇɪᴛʜᴇʀ ᴛʜᴇ ʙᴏᴛ ɪs ɴᴏᴛ ɪɴ ᴀʙᴏᴠᴇ ᴄʜᴀɴɴᴇʟ ᴏʀ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴘʀᴏᴘᴇʀ ᴀᴅᴍɪɴ ᴘᴇʀᴍɪssɪᴏɴs</blockquote>"""
-                        return await user_reply.reply(text=text.format(channel_id), reply_markup=ReplyKeyboardRemove())
-
-                    await db.del_stored_reqLink(channel_id)
-                    return await user_reply.reply(f"<b><blockquote><code>{channel_id}</code> ᴄʜᴀɴɴᴇʟs ʟɪɴᴋ sᴜᴄᴄᴇssғᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ ✅</blockquote></b>", reply_markup=ReplyKeyboardRemove())
-
-                except Exception as e:
-                    return await user_reply.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ...\n\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>", reply_markup=ReplyKeyboardRemove())
-
-            elif user_reply.text == 'DELETE ALL REQUEST LINKS':
-                try:
-                    result = ""
-                    for CHNL in REQFSUB_CHNLS:
-                        channel_id = int(CHNL)
-                        try:
-                            await client.revoke_chat_invite_link(channel_id, await db.get_stored_reqLink(channel_id))
-                        except BaseException:
-                            result += f"<blockquote expandable><b><code>{channel_id}</code> ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴠᴏᴋᴇ ❌</b>\n\n» ᴇɪᴛʜᴇʀ ᴛʜᴇ ʙᴏᴛ ɪs ɴᴏᴛ ɪɴ ᴀʙᴏᴠᴇ ᴄʜᴀɴɴᴇʟ ᴏʀ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴘʀᴏᴘᴇʀ ᴀᴅᴍɪɴ ᴘᴇʀᴍɪssɪᴏɴs.</blockquote>\n"
-                            continue
-                        await db.del_stored_reqLink(channel_id)
-                        result += f"<blockquote><b><code>{channel_id}</code> IDs ʟɪɴᴋ ᴅᴇʟᴇᴛᴇᴅ ✅</b></blockquote>\n"
-
-                    return await user_reply.reply(f"<b>⁉️ ᴏᴘᴇʀᴀᴛɪᴏɴ ʀᴇsᴜʟᴛ:</b>\n{result.strip()}", reply_markup=ReplyKeyboardRemove())
-
-                except Exception as e:
-                    return await user_reply.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ...\n\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>", reply_markup=ReplyKeyboardRemove())
-
-            else:
-                return await user_reply.reply(f"<b><blockquote>INVALID SELECTIONS</blockquote></b>", reply_markup=ReplyKeyboardRemove())
-
-        except Exception as e:
-            print(f"! Error Occurred on callback data = 'more_settings' : {e}")
-
-    elif data == 'req_fsub':
-        # if await authoUser(query, query.from_user.id, owner_only=True) :
-        await query.answer("Qᴜᴇʀʏ Pʀᴏᴄᴇssɪɴɢ...!!!")
-
-        try:
-            on = off = ""
-            if await db.get_request_forcesub():
-                on = "🟢"
-                texting = on_txt
-            else:
-                off = "🔴"
-                texting = off_txt
-
-            button = [
-                [InlineKeyboardButton(f"{on} ᴏɴ", "chng_req"), InlineKeyboardButton(
-                    f"{off} ᴏғғ", "chng_req")],
-                [InlineKeyboardButton("• ᴍᴏʀᴇ sᴇᴛᴛɪɴɢs •", "more_settings")]
-            ]
-            # 🎉)
-            await query.message.edit_text(text=RFSUB_CMD_TXT.format(req_mode=texting), reply_markup=InlineKeyboardMarkup(button))
-
-        except Exception as e:
-            print(f"! Error Occurred on callback data = 'chng_req' : {e}")
-    
-
-    # Handle shortener settings
-    elif data == "chng_shortener":  # Toggle shortener status
-        user_id = query.from_user.id
-        shortener_details = await db.get_shortener()
-
-    # Toggle the shortener status in the database
-        if shortener_details:
-        # Disable shortener
-            await db.set_shortener("", "")
-            await query.answer("sʜᴏʀᴛɴᴇʀ ᴅɪsᴀʙʟᴇᴅ ❌", show_alert=True)
-        else:
-        # Enable shortener, prompt for URL and API Key
-            await query.answer("» sʜᴏʀᴛɴᴇʀ ᴇɴᴀʙʟᴇᴅ ✅. ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴛʜᴇ sʜᴏʀᴛɴᴇʀ ᴜʀʟ ᴀɴᴅ ᴀᴘɪ ᴋᴇʏ.", show_alert=True)
-            await query.message.reply("» sᴇɴᴅ ᴛʜᴇ 𝐒𝐇𝐎𝐑𝐓𝐍𝐄𝐑 𝐔𝐑𝐋 ᴀɴᴅ 𝐀𝐏𝐈 𝐊𝐄𝐘 ɪɴ ᴛʜᴇ ғᴏʀᴍᴀᴛ:\n`<shortener_url> <api_key>`")
-
-    
-
-
-    elif data.startswith("detail_"):
-        mal_id = data.split("_")[1]
-        url = f"https://api.jikan.moe/v4/anime/{mal_id}"
-        anime_data = await fetch_anime_data(url)
-
-        if anime_data and "data" in anime_data:
-            anime = anime_data["data"]
-            details = (
-                f"» ᴛɪᴛʟᴇ: {style_anime_title(anime.get('title'))}\n"
-                f"» ᴛʏᴘᴇ: {anime.get('type', 'N/A')}\n"
-                f"» ᴇᴘɪsᴏᴅᴇs: {anime.get('episodes', 'Unknown')}\n"
-                f"» sᴄᴏʀᴇ: {anime.get('score', 'N/A')}\n"
-                f"» sʏɴᴏᴘsɪs: {anime.get('synopsis', 'No synopsis available.')}\n"
-                f"[MyAnimeList]({anime.get('url', '#')})"
-            )
-
-            await query.message.edit_text(
-                details,
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("• ᴄʟɪᴄᴋ ᴛᴏ ᴄʟᴏsᴇ ᴛʜɪs ᴘᴀɴᴇʟ •", callback_data='close')]]
-                ),
-                parse_mode=ParseMode.MARKDOWN
-            )
-        else:
-            await query.answer("Failed to fetch anime details..!!", show_alert=True)
+            except asyncio.TimeoutError:
+                # Handle timeout if user doesn't respond in time
+                await client.send_message(
+                    id,
+                    text="<b>⚠️ Timeout occurred. You did not respond within the time limit.</b>",
+                    disable_notification=True
+                )
+            except Exception as e:
+                # Handle any other exceptions
+                pass

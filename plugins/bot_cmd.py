@@ -477,6 +477,47 @@ async def list_fsub_button_links(client: Bot, message: Message):
     except Exception as e:
         logging.error(f"Error listing fsub button links: {e}")
         await message.reply(f"<b>❌ ᴇʀʀᴏʀ: {str(e)}</b>")
+#--------------------------------------------------------------[[PREMIUM COMMANDS]]---------------------------------------------------------------------------#
+
+@Bot.on_message(filters.command('premium') & filters.private & is_admin)
+async def add_premium_user(client: Bot, message: Message):
+    """Add a user to premium status"""
+    try:
+        text = message.text.split()
+
+        if len(text) < 3:
+            return await message.reply(
+                "<b>📌 ᴜsᴀɢᴇ:</b>\n"
+                "<code>/premium &lt;userID&gt; &lt;days&gt;</code>\n\n"
+                "<b>ᴇxᴀᴍᴘʟᴇ:</b>\n"
+                "<code>/premium 123456789 30</code>"
+            )
+
+        try:
+            user_id = int(text[1])
+            days = int(text[2])
+        except ValueError:
+            return await message.reply("<b>❌ ɪɴᴠᴀʟɪᴅ ᴜsᴇʀ ɪᴅ ᴏʀ ᴅᴀʏs!</b>")
+
+        if days <= 0:
+            return await message.reply("<b>❌ ᴅᴀʏs ᴍᴜsᴛ ʙᴇ ɢʀᴇᴀᴛᴇʀ ᴛʜᴀɴ 0!</b>")
+
+        await db.set_premium_user(user_id, days)
+
+        text_response = (
+            f"<b>✅ ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ!\n\n</b>"
+            f"<b>👤 ᴜsᴇʀ ɪᴅ:</b> <code>{user_id}</code>\n"
+            f"<b>📅 ᴅᴜʀᴀᴛɪᴏɴ:</b> <code>{days} ᴅᴀʏs</code>\n"
+            f"<b>🎁 ᴘᴇʀᴋ:</b> <i>ɴᴏ ᴛᴏᴋᴇɴ ᴀᴅs ʀᴇqᴜɪʀᴇᴅ</i>"
+        )
+
+        await message.reply(text_response)
+
+    except Exception as e:
+        logging.error(f"Error adding premium user: {e}")
+        await message.reply(f"<b>❌ ᴇʀʀᴏʀ: {str(e)}</b>")
+
+@Bot.on_message(filters.command('remove') & filters.private & is_admin)
 async def remove_premium_user(client: Bot, message: Message):
     """Remove premium status from user"""
     try:

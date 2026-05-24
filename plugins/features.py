@@ -531,6 +531,9 @@ async def handle_reqFsub(client: Client, message: Message):
         await message.reply(f"<b>! ᴇʀʀᴏʀ ᴏᴄᴄᴜʀᴇᴅ..\n<blockquote>ʀᴇᴀsᴏɴ:</b> {e}</blockquote><b><i>ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ: @urr_sanjiii</i></b>", reply_markup=reply_markup)
 
 
+#======================== PREMIUM SYSTEM CALLBACKS ========================#
+
+@Bot.on_callback_query(filters.regex("buy_premium"))
 async def buy_premium_callback(client: Client, query: CallbackQuery):
     """Show premium plans"""
     try:
@@ -568,12 +571,9 @@ async def buy_premium_callback(client: Client, query: CallbackQuery):
         await query.edit_message_caption(
             caption=plans_text,
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("👨‍💼 ᴏᴡɴᴇʀ", url="https://t.me/Mugiwaras_Network"),
-                 InlineKeyboardButton("📧 ᴀᴅᴍɪɴ", url="https://t.me/DoraShin_hlo")],
-                [InlineKeyboardButton("◀️ ʙᴀᴄᴋ", callback_data="back_to_token")]
+                [InlineKeyboardButton("👨‍💼 ᴏᴡɴᴇʀ", url="https://t.me/Mugiwaras_Network")]
             ])
         )
     except Exception as e:
         logging.error(f"Error in buy_premium_callback: {e}")
         await query.answer(f"❌ ᴇʀʀᴏʀ: {str(e)}", show_alert=True)
-

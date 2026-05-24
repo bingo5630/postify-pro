@@ -32,7 +32,13 @@ class Bot(Client):
         self.name = bot_info.first_name
         self.username = bot_info.username
         self.uptime = datetime.now()
-                
+
+        # Start cleanup task for /anime user_data
+        try:
+            from plugins.clean_user_data import cleanup_task
+            asyncio.create_task(cleanup_task())
+        except Exception as e:
+            self.LOGGER(__name__).error(f"Failed to start cleanup task: {e}")
 
         self.set_parse_mode(ParseMode.HTML)
         self.LOGGER(__name__).info(f"ᴀᴅᴠᴀɴᴄᴇ ғɪʟᴇ-sʜᴀʀɪɴɢ ʙᴏᴛ ᴡɪᴛʜ ᴛᴏᴋᴇɴ ғᴇᴀᴛᴜʀᴇ V5 ᴍᴀᴅᴇ ʙʏ ➪ @Urr_Sanjiii [Tᴇʟᴇɢʀᴀᴍ Usᴇʀɴᴀᴍᴇ]")

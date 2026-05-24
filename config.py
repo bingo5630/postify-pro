@@ -14,7 +14,6 @@ APP_ID = int(os.environ.get("APP_ID", "24371796"))
 #Your API Hash from my.telegram.org, --⚠️ REQUIRED--
 API_HASH = os.environ.get("API_HASH", "8121c78f4b8b31e88cc2623d1277338d")
 
-
 #OWNER ID --⚠️ REQUIRED--
 OWNER_ID = int(os.environ.get("OWNER_ID", "1683225887"))
 
@@ -27,12 +26,6 @@ PORT = os.environ.get("PORT", "8040")
 #Database --⚠️ REQUIRED--
 DB_URL = os.environ.get("DB_URL", "mongodb+srv://adamopytbusiness1:uSswEjo4ZHMGDU8Z@cluster0.gqgmk.mongodb.net/?retryWrites=true&w=majority&appName=MihawkFluxBot")
 DB_NAME = os.environ.get("DATABASE_NAME", "Mihawk_Flux_Bot")
-
-
-
-
-
-
 
 START_PIC = os.environ.get("START_PIC", "https://graph.org/file/903f5b233999f02fa6015-76938468f549dac193.jpg")
 FORCE_PIC = os.environ.get("FORCE_PIC", "https://graph.org/file/d14344c65c52acc05cb1e-8e5ac58617613aafa2.jpg")
