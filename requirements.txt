@@ -20,3 +20,4 @@ bs4
 shortzy
 aiofiles
 asyncio
+Pillow
