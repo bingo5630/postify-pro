@@ -154,7 +154,51 @@ async def anime_callbacks(client: Client, callback_query: CallbackQuery):
             user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
 
         await callback_query.answer(f"Crop State: {['Center', 'Left', 'Right'][user_data[user_id]['crop_state']]} | Img: {user_data[user_id]['current_image_idx'] + 1}")
-        # Keep same message but trigger an update alert for user
+
+        # Regenerate the preview
+        await callback_query.message.edit_text("⏳ GENERATING THUMBNAIL PREVIEW...")
+        anime = user_data[user_id]['selected_anime']
+        title = anime['title']['english'] or anime['title']['romaji']
+        genres = ", ".join(anime.get('genres', [])[:3])
+        synopsis = anime.get('description', '')
+        if synopsis:
+            synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '')
+        images = user_data[user_id]['images']
+        img_idx = user_data[user_id]['current_image_idx']
+        image_url = images[img_idx] if images else "https://via.placeholder.com/1920x1080"
+        crop_state = user_data[user_id]['crop_state']
+        username = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
+        try:
+            from plugins.settings import font_toggles
+            small_caps = font_toggles.get(user_id, {}).get("style_smallcaps", True)
+        except:
+            small_caps = False
+
+        poster_buf = await generate_poster(
+            anime_img_url=image_url,
+            title=title,
+            genres=genres,
+            synopsis=synopsis,
+            username=username,
+            logo_url=None,
+            crop_state=crop_state,
+            small_caps=small_caps
+        )
+
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("ɴᴇxᴛ ɪᴍɢ", callback_data="anime_thumb_next"),
+             InlineKeyboardButton("sᴋɪᴘ", callback_data="anime_thumb_skip"),
+             InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="anime_cancel")]
+        ])
+
+        try:
+            if callback_query.message.photo:
+                await callback_query.edit_message_media(media=InputMediaPhoto(poster_buf, caption=f"🖼 CUSTOM POSTER FOR '{title}' \n SEND ME A CUSTOM THUMBNAIL IMAGE, OR CLICK SKIP TO USE THIS POSTER."), reply_markup=keyboard)
+            else:
+                await callback_query.message.delete()
+                await client.send_photo(chat_id=callback_query.message.chat.id, photo=poster_buf, caption=f"🖼 CUSTOM POSTER FOR '{title}' \n SEND ME A CUSTOM THUMBNAIL IMAGE, OR CLICK SKIP TO USE THIS POSTER.", reply_markup=keyboard)
+        except Exception as e:
+            await callback_query.message.edit_text(f"🖼 CUSTOM POSTER FOR '{title}' \n SEND ME A CUSTOM THUMBNAIL IMAGE, OR CLICK SKIP TO USE THIS POSTER.", reply_markup=keyboard)
 
     elif data == "anime_thumb_skip":
         keyboard = InlineKeyboardMarkup([
