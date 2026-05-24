@@ -85,13 +85,79 @@ async def anime_cmd(client: Client, message: Message):
         'timestamp': time.time()
     }
 
+    from plugins.utils import apply_small_caps
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("ᴀɴɪʟɪsᴛ", callback_data="anime_source_anilist"),
-         InlineKeyboardButton("ᴍʏᴀɴɪᴍᴇʟɪsᴛ", callback_data="anime_source_mal")],
-        [InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="anime_cancel")]
+        [InlineKeyboardButton(apply_small_caps("Anilist"), callback_data=f"search_anilist_{query}"),
+         InlineKeyboardButton(apply_small_caps("MyAnimeList"), callback_data=f"search_mal_{query}")],
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
 
     await message.reply_text(f"SELECT SOURCE FOR: {query}", reply_markup=keyboard)
+
+@Bot.on_callback_query(filters.regex(r"^search_anilist_(.*)"))
+async def handle_anilist_search(client, callback_query):
+    query = callback_query.matches[0].group(1)
+    user_id = callback_query.from_user.id
+    await callback_query.answer("Fetching from AniList...")
+    await callback_query.message.edit_text("Searching...")
+
+    if user_id not in user_data:
+        import time
+        user_data[user_id] = {'query': query, 'results': [], 'selected_anime': None, 'crop_state': 0, 'images': [], 'current_image_idx': 0, 'audio': None, 'timestamp': time.time()}
+
+    try:
+        results = await fetch_anime_search(query, "anilist")
+    except Exception as e:
+        return await callback_query.message.edit_text(f"API Error: Could not fetch data. ({e})", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="close_anime_menu")]]))
+
+    if not results:
+        return await callback_query.message.edit_text("No results found. Please try another query.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="close_anime_menu")]]))
+
+    user_data[user_id]['results'] = results
+
+    buttons = []
+    for i, anime in enumerate(results):
+        title = anime['title']['english'] or anime['title']['romaji']
+        buttons.append([InlineKeyboardButton(title, callback_data=f"anime_select_{i}")])
+    buttons.append([InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="close_anime_menu")])
+
+    await callback_query.message.edit_text(f"SEARCH RESULTS (ANILIST) \n SELECT THE CORRECT TITLE FROM THE LIST BELOW:", reply_markup=InlineKeyboardMarkup(buttons))
+
+@Bot.on_callback_query(filters.regex(r"^search_mal_(.*)"))
+async def handle_mal_search(client, callback_query):
+    query = callback_query.matches[0].group(1)
+    user_id = callback_query.from_user.id
+    await callback_query.answer("Fetching from MyAnimeList...")
+    await callback_query.message.edit_text("Searching...")
+
+    if user_id not in user_data:
+        import time
+        user_data[user_id] = {'query': query, 'results': [], 'selected_anime': None, 'crop_state': 0, 'images': [], 'current_image_idx': 0, 'audio': None, 'timestamp': time.time()}
+
+    try:
+        results = await fetch_anime_search(query, "mal")
+    except Exception as e:
+        return await callback_query.message.edit_text(f"API Error: Could not fetch data. ({e})", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="close_anime_menu")]]))
+
+    if not results:
+        return await callback_query.message.edit_text("No results found. Please try another query.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="close_anime_menu")]]))
+
+    user_data[user_id]['results'] = results
+
+    buttons = []
+    for i, anime in enumerate(results):
+        title = anime['title']['english'] or anime['title']['romaji']
+        buttons.append([InlineKeyboardButton(title, callback_data=f"anime_select_{i}")])
+    buttons.append([InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="close_anime_menu")])
+
+    await callback_query.message.edit_text(f"SEARCH RESULTS (MAL) \n SELECT THE CORRECT TITLE FROM THE LIST BELOW:", reply_markup=InlineKeyboardMarkup(buttons))
+
+@Bot.on_callback_query(filters.regex("^close_anime_menu$"))
+async def close_anime_menu(client, callback_query):
+    user_id = callback_query.from_user.id
+    if user_id in user_data:
+        del user_data[user_id]
+    await callback_query.message.delete()
 
 @Bot.on_callback_query(filters.regex(r"^anime_"))
 async def anime_callbacks(client: Client, callback_query: CallbackQuery):
@@ -104,32 +170,9 @@ async def anime_callbacks(client: Client, callback_query: CallbackQuery):
     if data == "anime_cancel":
         if user_id in user_data:
             del user_data[user_id]
-        await callback_query.message.edit_text("Operation Cancelled.")
+        await callback_query.message.delete()
         return
 
-    if data.startswith("anime_source_"):
-        source = data.split("_")[2]
-        query = user_data[user_id]['query']
-        await callback_query.message.edit_text("Searching...")
-
-        try:
-            results = await fetch_anime_search(query, source)
-        except Exception as e:
-            return await callback_query.message.edit_text(f"API Error: Could not fetch data. ({e})", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="anime_cancel")]]))
-
-        if not results:
-            return await callback_query.message.edit_text("No results found. Please try another query.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="anime_cancel")]]))
-
-        user_data[user_id]['results'] = results
-
-        buttons = []
-        for i, anime in enumerate(results):
-            title = anime['title']['english'] or anime['title']['romaji']
-            buttons.append([InlineKeyboardButton(title, callback_data=f"anime_select_{i}")])
-        buttons.append([InlineKeyboardButton("ᴄᴀɴᴄᴇʟ", callback_data="anime_cancel")])
-
-        source_name = "ANILIST" if source == "anilist" else "MAL"
-        await callback_query.message.edit_text(f"SEARCH RESULTS ({source_name}) \n SELECT THE CORRECT TITLE FROM THE LIST BELOW:", reply_markup=InlineKeyboardMarkup(buttons))
 
     elif data.startswith("anime_select_"):
         idx = int(data.split("_")[2])
