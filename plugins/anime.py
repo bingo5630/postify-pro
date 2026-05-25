@@ -327,9 +327,16 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
     genres = ", ".join(anime.get('genres', [])[:3])
+    
+    # ==========================================
+    # FIX: PREVENT TELEGRAM CAPTION LENGTH CRASH
+    # ==========================================
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '')
+        # Telegram 1024 char limit ke liye truncate kar rahe hain
+        if len(synopsis) > 600:
+            synopsis = synopsis[:597] + "..."
 
     images = user_data[user_id]['images']
     img_idx = user_data[user_id]['current_image_idx']
@@ -344,7 +351,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     except:
         small_caps = False
 
-    # Safely fetch Custom Text and Logo from Database
     try:
         from databases.database import db
         if hasattr(db, 'get_anime_brand_text'):
@@ -357,7 +363,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         custom_text = None
         custom_logo = None
 
-    # Fallback to Telegram name ONLY if no custom text is set
     fallback_name = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
     final_username = custom_text if custom_text else fallback_name
 
