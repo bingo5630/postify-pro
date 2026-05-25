@@ -81,11 +81,12 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
-    # Pure Alpha Extract (Removes White Halo)
-    try:
-        hex_mask = fetched_mask.split()[3] 
-    except IndexError:
-        hex_mask = fetched_mask.convert('L')
+    # ==========================================
+    # THE FIX: Perfect Black & White Mask Handling
+    # ==========================================
+    hex_mask = fetched_mask.convert('L')
+    # Apply sharp threshold to remove gray edges (safed line hatane ke liye)
+    hex_mask = hex_mask.point(lambda p: 255 if p > 128 else 0)
 
     anime_artwork = crop_image(anime_img, hex_mask.size, crop_state)
     
@@ -107,7 +108,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     except:
         font_title = font_genres = font_synopsis = font_brand = ImageFont.load_default()
 
-    # Force ALL-CAPS & Tighter 16-Char Wrap
     wrapped_title = textwrap.fill(title.upper(), width=16) 
     title_lines = wrapped_title.split('\n')
 
@@ -118,11 +118,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     x_offset = 80 
     y_offset = 280
 
-    # ==========================================
-    # FIX: FIRST LINE WHITE, SECOND LINE ORANGE
-    # ==========================================
     for i, line in enumerate(title_lines):
-        # Agar pehli line hai (0) toh white, warna Orange (#FF6B00)
         text_color = "white" if i == 0 else "#FF6B00"
         draw.text((x_offset, y_offset), line, font=font_title, fill=text_color)
         y_offset += 90
