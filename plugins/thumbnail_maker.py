@@ -14,6 +14,20 @@ HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
 FONT_TITLE = os.path.join(FONTS_DIR, "Montserrat-Black.ttf")
 FONT_BODY = os.path.join(FONTS_DIR, "Roboto-Medium.ttf")
 
+def clean_logo(img):
+    img = img.convert("RGBA")
+    if img.getextrema()[3][0] < 255:
+        return img
+    
+    tiny = img.convert("RGB").resize((32, 32))
+    for r, g, b in tiny.getdata():
+        if abs(r-g) > 25 or abs(r-b) > 25:
+            return img 
+            
+    white_img = Image.new("RGBA", img.size, (255, 255, 255, 255))
+    white_img.putalpha(img.convert("L"))
+    return white_img
+
 def crop_image(img, target_size, crop_state):
     target_width, target_height = target_size
     img_ratio = img.width / img.height
@@ -82,11 +96,12 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
     # ==========================================
-    # THE FIX: Perfect Black & White Mask Handling
+    # FIX: Perfect Alpha Transparency Extraction (No Halos)
     # ==========================================
-    hex_mask = fetched_mask.convert('L')
-    # Apply sharp threshold to remove gray edges (safed line hatane ke liye)
-    hex_mask = hex_mask.point(lambda p: 255 if p > 128 else 0)
+    try:
+        hex_mask = fetched_mask.split()[3] 
+    except IndexError:
+        hex_mask = fetched_mask.convert('L')
 
     anime_artwork = crop_image(anime_img, hex_mask.size, crop_state)
     
@@ -111,8 +126,11 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     wrapped_title = textwrap.fill(title.upper(), width=16) 
     title_lines = wrapped_title.split('\n')
 
-    if len(synopsis) > 280:
-        synopsis = synopsis[:277] + "..."
+    # ==========================================
+    # FIX: Shorter Synopsis + "...read more"
+    # ==========================================
+    if len(synopsis) > 180:
+        synopsis = synopsis[:177].rsplit(' ', 1)[0] + "...read more"
     wrapped_synopsis = textwrap.fill(synopsis, width=45)
 
     x_offset = 80 
@@ -134,6 +152,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     
     if logo_img:
         try:
+            logo_img = clean_logo(logo_img)
             logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS).convert('RGBA')
             final_img.paste(logo_img, (brand_x, brand_y), logo_img)
             brand_x += 100 
