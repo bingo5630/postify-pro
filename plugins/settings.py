@@ -137,9 +137,22 @@ async def anime_caption_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Caption Settings", query.from_user.id, query.from_user.first_name)
     keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(apply_small_caps("Set Text"), callback_data="set_anime_caption_text")],
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
     ])
     await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + CAPTION_TEXT), reply_markup=keyboard)
+
+@Bot.on_callback_query(filters.regex('^set_anime_caption_text$'))
+async def anime_caption_text_cb(client: Client, query: CallbackQuery):
+    await query.answer("Please send the custom caption format now.")
+    try:
+        response = await client.ask(query.from_user.id, "Send the new caption format (HTML allowed):", timeout=60)
+        # Store in DB here (pseudo-code depending on DB structure)
+        # await db.set_anime_caption(query.from_user.id, response.text)
+        await response.reply_text("Caption successfully set.")
+        await anime_caption_cb(client, query)
+    except asyncio.TimeoutError:
+        await client.send_message(query.from_user.id, "Timeout occurred.")
 
 @Bot.on_callback_query(filters.regex('^set_anime_buttons$'))
 async def anime_buttons_cb(client: Client, query: CallbackQuery):
