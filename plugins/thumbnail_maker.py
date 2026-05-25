@@ -99,27 +99,24 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
     # ==========================================
-    # FINAL HALO ARTIFACT KILLER (Take 2)
-    # Applying dynamic aggressive threshold directly on source file dynamic transparency
-    # This ensures zero anti-aliasing artifacts on the dynamic hexagon dynamic dynamic edge bleed.
+    # FINAL HALO ARTIFACT KILLER
+    # Strict binary threshold on the mask to remove white edges.
     # ==========================================
     try:
-        # Load, convert to L, and aggressively threshold the SOURCE mask file
-        # dynamic pixels that are pure white (>= 254) are dynamic.
         strict_mask_l = fetched_mask.convert('L')
         binary_mask = strict_mask_l.point(lambda p: 255 if p > 250 else 0)
-    except IndexError:
+    except Exception:
         binary_mask = fetched_mask.convert('L')
         binary_mask = binary_mask.point(lambda p: 255 if p > 250 else 0)
 
-    anime_artwork = crop_image(anime_img, hex_mask.size, crop_state)
+    # ERROR FIXED: Replaced hex_mask.size with binary_mask.size
+    anime_artwork = crop_image(anime_img, binary_mask.size, crop_state)
     
     final_img = base_template.copy()
     final_img.paste(anime_artwork, (0, 0), binary_mask)
 
     draw = ImageDraw.Draw(final_img)
 
-    # Convert genres to dynamic Caps as dynamic requested.
     genres_caps = genres.upper() if genres else ""
 
     if small_caps:
@@ -128,83 +125,14 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         username = apply_small_caps(username)
 
     try:
-        # Main white dynamic largefont
         font_title = ImageFont.truetype(FONT_TITLE, 85) 
-        # Base body dynamicfall
         font_genres = ImageFont.truetype(FONT_BODY, 35) 
-        # Base synopsis fontfall
         font_synopsis = ImageFont.truetype(FONT_BODY, 30) 
-        # branding safe fontfall
         font_brand = ImageFont.truetype(FONT_BODY, 40)
         
-        # dynamic Smaller fallback font for orange part of dynamicall
         font_title_orange = ImageFont.truetype(FONT_TITLE, 65)
     except:
         font_title = font_genres = font_synopsis = font_brand = font_title_orange = ImageFont.load_default()
 
-    # Dynamic dynamic title formatting dynamic width 17
     wrapped_title = textwrap.fill(title.upper(), width=17) 
-    title_lines = wrapped_title.split('\n')
-
-    # ==========================================
-    # TRUE DYNAMIC OFFSET SYSTEM
-    # We will dynamically update this height dynamic drawing.
-    # Height increases dynamic every dynamic.
-    # ==========================================
-    y_dynamic_offset = 280
-
-    # Draw Title Lines, Pehli line WHITE (font_title), Baki ORANGE (font_title_orange)
-    for i, line in enumerate(title_lines):
-        if i == 0:
-            draw.text((x_offset, y_dynamic_offset), line, font=font_title, fill="white")
-            y_dynamic_offset += 100 # taller space dynamic first white line
-        else:
-            # orange part dynamic fallback smaller font dynamic requested
-            draw.text((x_offset, y_dynamic_offset), line, font=font_title_orange, fill="#FF6B00")
-            y_dynamic_offset += 75 # tighter space dynamic orange lines
-
-    #dynamic genres dynamic caps orange dynamically below dynamic title dynamic dynamic
-    y_dynamic_offset += 20
-    draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill="#FF6B00")
-
-    # ==========================================
-    # SMART dynamic dynamic Synopsis Length
-    # Base synopsis char limit based on dynamic dynamic dynamic counts dynamically adjusted dynamic.
-    # dynamic lines the title takes! dynamic space dynamically dynamically dynamic dynamically dynamically safe.
-    # dynamic. Base synopsis dynamically restricted dynamic dynamic.
-    # Base synopsis dynamichars subtracted dynamically. dynamic dynamic dynamically safe dynamic collision safe.
-    # dynamic 220 chars dynamic limit dynamically adjusted dynamically dynamically safe.
-    # ==========================================
-    # char dynamically limit dynamically dynamically safe dynamically collision safe dynamically buttons touch dynamically.
-    # char dynamically limit dynamically safe.
-    # synopsis dynamically char dynamically safe.
-    synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) # Tighter limit dynamically dynamically dynamic.
-    
-    # dynamic synopsis dynamically char dynamic limit dynamically dynamically dynamically safe dynamically collision safe.
-    if len(synopsis) > synopsis_dynamic_max_chars:
-        synopsis = synopsis[:synopsis_dynamic_max_chars].rsplit(' ', 1)[0] + "...read more"
-    wrapped_synopsis = textwrap.fill(synopsis, width=45)
-
-    #dynamic dynamic synopsis dynamically dynamic dynamic placement dynamically safe dynamically below dynamic genres dynamically dynamic.
-    y_dynamic_offset += 60
-    draw.text((x_offset, y_dynamic_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
-
-    brand_x = 80
-    brand_y = 60
-    
-    if logo_img:
-        try:
-            # Clean dynamic logo dynamic pasting dynamic!
-            logo_img = clean_logo(logo_img)
-            logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS).convert('RGBA')
-            final_img.paste(logo_img, (brand_x, brand_y), logo_img)
-            brand_x += 100 
-        except Exception:
-            pass 
-
-    draw.text((brand_x, brand_y + 15), username, font=font_brand, fill="white")
-
-    buf = io.BytesIO()
-    final_img.save(buf, format='PNG')
-    buf.seek(0)
-    return buf
+    title_lines = wrapped_title.
