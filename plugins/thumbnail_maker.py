@@ -75,6 +75,38 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     else:
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
+    base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
+
+    try:
+        fetched_mask = Image.open(HEX_MASK_PATH).convert('RGBA')
+    except:
+        fetched_mask = Image.new('RGBA', base_template.size, (0, 0, 0, 0))
+        
+    fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
+    
+    # ==========================================
+    # ARTIFACT KILLER: ALPHA CLAMPING + COMPOSITE CANVAS
+    # ==========================================
+    
+    # 1. Mask ko strict Black & White mein convert karna
+    strict_l_mask = fetched_mask.convert('L')
+    binary_mask_full = strict_l_mask.point(lambda p: 255 if p > 128 else 0)
+
+    # 2. Anime Artwork ko crop karna
+    crop_artwork_full = crop_image(anime_img, base_template.size, crop_state)
+
+    # 3. Ek blank transparent canvas banana
+    clean_cutout_layer = Image.new('RGBA', base_template.size, (0, 0, 0, 0))
+
+    # 4. Artwork ko sharp mask ke sath transparent canvas par paste karna (White line yaheen khatam ho jayegi)
+    clean_cutout_layer.paste(crop_artwork_full, (0, 0), binary_mask_full)
+
+    # 5. Us clean cutout ko final template par paste karna
+    final_img = base_template.copy()
+    final_img.paste(clean_cutout_layer, (0, 0), clean_cutout_layer)
+
+    draw = ImageDraw.Draw(final_img)
+
     logo_img = None
     if logo_url:
         try:
@@ -86,35 +118,8 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
                             logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
             elif os.path.exists(logo_url):
                 logo_img = Image.open(logo_url).convert('RGBA')
-        except Exception:
+        except Exception: 
             pass
-
-    base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
-
-    try:
-        fetched_mask = Image.open(HEX_MASK_PATH).convert('RGBA')
-    except:
-        fetched_mask = Image.new('RGBA', base_template.size, (0, 0, 0, 0))
-
-    fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
-    
-    # ==========================================
-    # FINAL HALO ARTIFACT KILLER
-    # Strict binary threshold on the mask to remove white edges.
-    # ==========================================
-    try:
-        strict_mask_l = fetched_mask.convert('L')
-        binary_mask = strict_mask_l.point(lambda p: 255 if p > 250 else 0)
-    except Exception:
-        binary_mask = fetched_mask.convert('L')
-        binary_mask = binary_mask.point(lambda p: 255 if p > 250 else 0)
-
-    anime_artwork = crop_image(anime_img, binary_mask.size, crop_state)
-    
-    final_img = base_template.copy()
-    final_img.paste(anime_artwork, (0, 0), binary_mask)
-
-    draw = ImageDraw.Draw(final_img)
 
     genres_caps = genres.upper() if genres else ""
 
@@ -124,11 +129,10 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         username = apply_small_caps(username)
 
     try:
-        font_title = ImageFont.truetype(FONT_TITLE, 85) 
-        font_genres = ImageFont.truetype(FONT_BODY, 35) 
-        font_synopsis = ImageFont.truetype(FONT_BODY, 30) 
+        font_title = ImageFont.truetype(FONT_TITLE, 85)
+        font_genres = ImageFont.truetype(FONT_BODY, 35)
+        font_synopsis = ImageFont.truetype(FONT_BODY, 30)
         font_brand = ImageFont.truetype(FONT_BODY, 40)
-        
         font_title_orange = ImageFont.truetype(FONT_TITLE, 65)
     except:
         font_title = font_genres = font_synopsis = font_brand = font_title_orange = ImageFont.load_default()
@@ -136,7 +140,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     wrapped_title = textwrap.fill(title.upper(), width=17) 
     title_lines = wrapped_title.split('\n')
 
-    # FIX: Added x_offset back!
     x_offset = 80
     y_dynamic_offset = 280
 
