@@ -51,57 +51,58 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-async def generate_poster(anime_img_url, title, genres, synopsis, username, logo_url=None, crop_state=0, small_caps=False):
-    # Fetch anime image
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(anime_img_url) as resp:
-                anime_img_data = await resp.read()
-                anime_img = Image.open(io.BytesIO(anime_img_data)).convert('RGBA')
-        except Exception:
-            anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
+async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False):
 
-        # Fetch logo if provided
-        logo_img = None
-        if logo_url:
+    # Load anime image (API or custom upload)
+    if custom_image_path:
+        anime_img = Image.open(custom_image_path).convert('RGBA')
+    elif anime_img_url:
+        async with aiohttp.ClientSession() as session:
             try:
+                async with session.get(anime_img_url) as resp:
+                    anime_img_data = await resp.read()
+                    anime_img = Image.open(io.BytesIO(anime_img_data)).convert('RGBA')
+            except Exception:
+                anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
+    else:
+        anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
+
+    # Fetch logo if provided
+    logo_img = None
+    if logo_url:
+        try:
+            async with aiohttp.ClientSession() as session:
                 async with session.get(logo_url) as resp:
                     if resp.status == 200:
                         logo_data = await resp.read()
                         logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
-            except Exception as e:
-                pass
+        except Exception as e:
+            pass
 
     # Load template and mask
-    template = Image.open(TEMPLATE_PATH).convert('RGBA')
+    base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
 
+    # Step 1: Fetch the specific ImgBB Mask logic
     try:
-        # Load the transparent mask provided by user
-        hex_mask = Image.open(HEX_MASK_PATH).convert('RGBA')
-        # Resize mask to template size
-        hex_mask = hex_mask.resize(template.size, Image.Resampling.LANCZOS)
-        # Extract the alpha channel as 'L'
-        alpha_mask = hex_mask.convert('L')
-    except Exception as e:
-        # Fallback to white area if the transparent one is missing
-        alpha_mask = Image.new('L', template.size, 0)
-        pixels = template.load()
-        mask_pixels = alpha_mask.load()
-        for y in range(template.height):
-            for x in range(template.width):
-                r, g, b, a = pixels[x, y]
-                if x > 800 and r > 240 and g > 240 and b > 240:
-                    mask_pixels[x, y] = 255
+        fetched_mask = Image.open(HEX_MASK_PATH).convert('RGBA')
+    except:
+        fetched_mask = Image.new('RGBA', base_template.size, (0, 0, 0, 0))
 
-    # Crop anime img
-    cropped_anime = crop_image(anime_img, template.size, crop_state)
+    # Resize fetched mask to template dimensions (in case it differs slightly)
+    fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
 
-    # Put alpha
-    cropped_anime.putalpha(alpha_mask)
+    # Step 2: Prepare the Mask (grayscale mode for alpha stencil)
+    hex_mask = fetched_mask.convert('L')
 
-    # Paste onto template using mask
-    final_img = template.copy()
-    final_img.paste(cropped_anime, (0, 0), alpha_mask)
+    # Step 3: Resize Artwork exactly to the dimensions of hex_mask
+    anime_artwork = crop_image(anime_img, hex_mask.size, crop_state)
+
+    # Optional: Apply stencil strictly directly on artwork (as requested, but paste does it too)
+    anime_artwork.putalpha(hex_mask)
+
+    # Step 4: Paste strictly inside the Hexagon
+    final_img = base_template.copy()
+    final_img.paste(anime_artwork, (0, 0), hex_mask)
 
     draw = ImageDraw.Draw(final_img)
 
