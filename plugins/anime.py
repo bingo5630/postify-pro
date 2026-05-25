@@ -85,7 +85,6 @@ async def anime_cmd(client: Bot, message: Message):
         'timestamp': time.time()
     }
 
-    # Removed query from callback_data to prevent 64-byte crash limits
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Anilist"), callback_data="search_anilist"),
          InlineKeyboardButton(apply_small_caps("MyAnimeList"), callback_data="search_mal")],
@@ -95,7 +94,6 @@ async def anime_cmd(client: Bot, message: Message):
     await message.reply_text(f"SELECT SOURCE FOR: {query}", reply_markup=keyboard)
 
 
-# ADDED GROUP=-1 TO BYPASS FILE-SHARING BOT'S CATCH-ALL HANDLERS
 @Bot.on_callback_query(filters.regex("^search_anilist$"), group=-1)
 async def handle_anilist_search(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -316,7 +314,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired. Please start again.", show_alert=True)
         raise StopPropagation
 
-    # Don't process custom trigger string literally
     if callback_query.data != "anime_audio_custom":
         audio = callback_query.matches[0].group(1) if hasattr(callback_query, 'matches') and callback_query.matches else callback_query.data.replace("anime_audio_", "")
         user_data[user_id]['audio'] = audio
@@ -341,44 +338,51 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     custom_image_path = user_data[user_id].get('custom_image')
     crop_state = user_data[user_id]['crop_state']
 
-    username = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
-
     try:
         from plugins.settings import font_toggles
         small_caps = font_toggles.get(user_id, {}).get("style_smallcaps", True)
     except:
         small_caps = False
 
-    # FIX 1: Generate poster with NORMAL text (Fixes the square boxes on the image!)
+    # ==========================================
+    # FIX: FETCH CUSTOM BRANDING FROM DATABASE
+    # ==========================================
+    try:
+        custom_text = await db.get_text(user_id)
+        custom_logo = await db.get_logo(user_id)
+    except:
+        custom_text = None
+        custom_logo = None
+
+    # Fallback to Telegram name ONLY if no custom text is set
+    fallback_name = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
+    final_username = custom_text if custom_text else fallback_name
+
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
         custom_image_path=custom_image_path,
         title=title,
         genres=genres,
         synopsis=synopsis,
-        username=username,
-        logo_url=None,
+        username=final_username, # Now passing Custom DB Text
+        logo_url=custom_logo,    # Now passing Custom DB Logo URL
         crop_state=crop_state,
-        small_caps=False  # <-- SET TO FALSE TO FIX DABBA FONT
+        small_caps=False  
     )
 
-    # FIX 2: Fetch Custom Caption Format from Database
     try:
         caption_template = await db.get_caption(user_id)
     except:
         caption_template = None
 
-    # Fallback format if DB is empty
     if not caption_template:
         caption_template = "<b>{title}</b>\n\n» Type: <code>{type}</code>\n» Rating: <code>{rating}</code>\n» Status: <code>{status}</code>\n» Episodes: <code>{episodes}</code>\n» Genre: {genres}\n\n<blockquote expandable>➤ Synopsis: {plot}</blockquote>"
 
-    # Safely extract extra metadata variables (falling back to N/A if API didn't provide them)
     anime_type = str(anime.get('format', anime.get('type', 'TV')))
     rating = str(anime.get('averageScore', anime.get('score', 'N/A')))
     status = str(anime.get('status', 'FINISHED'))
     episodes = str(anime.get('episodes', 'N/A'))
 
-    # Apply small caps ONLY to the values, so it doesn't break HTML tags like <b> or <code>
     v_title = apply_small_caps(title) if small_caps else title
     v_type = apply_small_caps(anime_type) if small_caps else anime_type
     v_rating = apply_small_caps(rating) if small_caps else rating
@@ -388,7 +392,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     v_plot = apply_small_caps(synopsis) if small_caps else synopsis
     v_audio = apply_small_caps(audio) if small_caps else audio
 
-    # Inject data into user's custom caption format
     try:
         caption = caption_template.format(
             title=v_title,
@@ -404,7 +407,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             season="N/A"
         )
     except Exception as e:
-        # Emergency fallback if format fails due to a missing tag
         caption = f"<b>{v_title}</b>\n\n<b>Audio:</b> {v_audio}\n<b>Genres:</b> {v_genres}"
 
     await callback_query.message.delete()
