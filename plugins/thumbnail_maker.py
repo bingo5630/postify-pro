@@ -9,8 +9,7 @@ ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 
 TEMPLATE_PATH = os.path.join(ASSETS_DIR, "template.png")
-# FIX: Corrected mask name to match your folder
-HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png") 
+HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
 
 FONT_TITLE = os.path.join(FONTS_DIR, "Montserrat-Black.ttf")
 FONT_BODY = os.path.join(FONTS_DIR, "Roboto-Medium.ttf")
@@ -67,7 +66,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
                     if resp.status == 200:
                         logo_data = await resp.read()
                         logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
-        except Exception as e:
+        except Exception:
             pass
 
     base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
@@ -94,32 +93,31 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         synopsis = apply_small_caps(synopsis)
         username = apply_small_caps(username)
 
-    # Safe Font Loading
     try:
-        font_title = ImageFont.truetype(FONT_TITLE, 80)
+        font_title = ImageFont.truetype(FONT_TITLE, 75) # Thoda chhota kiya taaki fit ho
         font_genres = ImageFont.truetype(FONT_BODY, 35)
         font_synopsis = ImageFont.truetype(FONT_BODY, 30)
         font_brand = ImageFont.truetype(FONT_BODY, 40)
     except:
         font_title = font_genres = font_synopsis = font_brand = ImageFont.load_default()
 
+    # Text wrapping tighter to fit inside the right box
     wrapped_title = textwrap.fill(title, width=22)
     title_lines = wrapped_title.split('\n')
 
-    # FIX: Increased length for synopsis so it doesn't cut off too early
     if len(synopsis) > 280:
         synopsis = synopsis[:277] + "..."
-    wrapped_synopsis = textwrap.fill(synopsis, width=55)
+    wrapped_synopsis = textwrap.fill(synopsis, width=45) # Tighter wrap
 
     # ==========================================
-    # FIX: MOVED EVERYTHING TO THE RIGHT SIDE
+    # FIX: Shifted coordinates further right (1000)
     # ==========================================
-    x_offset = 950  # Shifted from 80 to 950 (Right side of 1920x1080 canvas)
+    x_offset = 1000 
     y_offset = 250
 
     for line in title_lines:
         draw.text((x_offset, y_offset), line, font=font_title, fill="white")
-        y_offset += 90
+        y_offset += 85
 
     y_offset += 20
     draw.text((x_offset, y_offset), genres, font=font_genres, fill="#FF6B00")
@@ -127,19 +125,23 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     y_offset += 60
     draw.text((x_offset, y_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
 
-    # Branding (Top Right)
-    brand_x = 950
-    brand_y = 100
+    # ==========================================
+    # FIX: Safe Branding & Logo Paste
+    # ==========================================
+    brand_x = 1000
+    brand_y = 80
+    
     if logo_img:
-        logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS)
-        grayscale_mask = logo_img.convert('L')
-        rgba_logo = logo_img.convert('RGBA')
-        rgba_logo.putalpha(grayscale_mask)
-        final_img.paste(rgba_logo, (brand_x, brand_y), rgba_logo)
-        brand_x += 100
-        brand_y += 15
+        try:
+            # Safe paste with alpha composite
+            logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS).convert('RGBA')
+            final_img.paste(logo_img, (brand_x, brand_y), logo_img)
+            brand_x += 100 # Move text next to logo
+        except Exception:
+            pass # Ignore if logo fails to process
 
-    draw.text((brand_x, brand_y), username, font=font_brand, fill="white")
+    # Draw Username (Telegram Name)
+    draw.text((brand_x, brand_y + 15), username, font=font_brand, fill="white")
 
     buf = io.BytesIO()
     final_img.save(buf, format='PNG')
