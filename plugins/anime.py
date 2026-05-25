@@ -344,6 +344,19 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     except:
         small_caps = False
 
+ cleanup-poster-bot-refactor-17135537001999441390
+    try:
+        from databases.database import db
+        db_brand_text = await db.get_anime_brand_text(user_id)
+        db_brand_logo = await db.get_anime_brand_logo(user_id)
+
+        # Override if db returns something valid
+        if db_brand_text:
+            username = db_brand_text
+
+    except Exception as e:
+        db_brand_logo = None
+
     # ==========================================
     # FIX: FETCH CUSTOM BRANDING FROM DATABASE
     # ==========================================
@@ -357,6 +370,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     # Fallback to Telegram name ONLY if no custom text is set
     fallback_name = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
     final_username = custom_text if custom_text else fallback_name
+ main
 
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
@@ -364,8 +378,13 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         title=title,
         genres=genres,
         synopsis=synopsis,
+ cleanup-poster-bot-refactor-17135537001999441390
+        username=username,
+        logo_url=db_brand_logo,
+
         username=final_username, # Now passing Custom DB Text
         logo_url=custom_logo,    # Now passing Custom DB Logo URL
+ main
         crop_state=crop_state,
         small_caps=False  
     )

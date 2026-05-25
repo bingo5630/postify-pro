@@ -590,4 +590,22 @@ class Rohit:
         return active_users
 
 
+
+    async def get_anime_brand_text(self, user_id: int):
+        user = await self.user_data.find_one({'_id': user_id})
+        return user.get('anime_brand_text', None) if user else None
+
+    async def set_anime_brand_text(self, user_id: int, text: str):
+        await self.user_data.update_one({'_id': user_id}, {'$set': {'anime_brand_text': text}}, upsert=True)
+
+    async def get_anime_brand_logo(self, user_id: int):
+        user = await self.user_data.find_one({'_id': user_id})
+        return user.get('anime_brand_logo', None) if user else None
+
+    async def set_anime_brand_logo(self, user_id: int, logo_path: str):
+        await self.user_data.update_one({'_id': user_id}, {'$set': {'anime_brand_logo': logo_path}}, upsert=True)
+
+    async def del_anime_branding(self, user_id: int):
+        await self.user_data.update_one({'_id': user_id}, {'$unset': {'anime_brand_text': '', 'anime_brand_logo': ''}})
+
 db = Rohit(DB_URL, DB_NAME)
