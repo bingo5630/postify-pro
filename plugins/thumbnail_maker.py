@@ -62,21 +62,14 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     if logo_url:
         try:
             if logo_url.startswith("http"):
-            if os.path.exists(logo_url):
-                logo_img = Image.open(logo_url).convert('RGBA')
-            else:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(logo_url) as resp:
                         if resp.status == 200:
                             logo_data = await resp.read()
                             logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
- cleanup-poster-bot-refactor-17135537001999441390
             elif os.path.exists(logo_url):
                 logo_img = Image.open(logo_url).convert('RGBA')
-        except Exception as e:
-
         except Exception:
- main
             pass
 
     base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
