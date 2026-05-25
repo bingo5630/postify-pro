@@ -59,7 +59,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
     logo_img = None
-    # FIX: Safely handle both Local File paths (like branding.png) and URLs
     if logo_url:
         try:
             if os.path.exists(logo_url):
@@ -81,46 +80,52 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         fetched_mask = Image.new('RGBA', base_template.size, (0, 0, 0, 0))
 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
-    hex_mask = fetched_mask.convert('L')
+    
+    # Pure Alpha Extract (Removes White Halo)
+    try:
+        hex_mask = fetched_mask.split()[3] 
+    except IndexError:
+        hex_mask = fetched_mask.convert('L')
 
     anime_artwork = crop_image(anime_img, hex_mask.size, crop_state)
-    anime_artwork.putalpha(hex_mask)
-
+    
     final_img = base_template.copy()
     final_img.paste(anime_artwork, (0, 0), hex_mask)
 
     draw = ImageDraw.Draw(final_img)
 
     if small_caps:
-        title = apply_small_caps(title)
         genres = apply_small_caps(genres)
         synopsis = apply_small_caps(synopsis)
         username = apply_small_caps(username)
 
     try:
-        font_title = ImageFont.truetype(FONT_TITLE, 75)
+        font_title = ImageFont.truetype(FONT_TITLE, 80)
         font_genres = ImageFont.truetype(FONT_BODY, 35)
         font_synopsis = ImageFont.truetype(FONT_BODY, 30)
         font_brand = ImageFont.truetype(FONT_BODY, 40)
     except:
         font_title = font_genres = font_synopsis = font_brand = ImageFont.load_default()
 
-    wrapped_title = textwrap.fill(title, width=25)
+    # Force ALL-CAPS & Tighter 16-Char Wrap
+    wrapped_title = textwrap.fill(title.upper(), width=16) 
     title_lines = wrapped_title.split('\n')
 
     if len(synopsis) > 280:
         synopsis = synopsis[:277] + "..."
     wrapped_synopsis = textwrap.fill(synopsis, width=45)
 
-    # ==========================================
-    # FIX: TEXT SHIFTED BACK TO THE LEFT SIDE
-    # ==========================================
     x_offset = 80 
     y_offset = 280
 
-    for line in title_lines:
-        draw.text((x_offset, y_offset), line, font=font_title, fill="white")
-        y_offset += 85
+    # ==========================================
+    # FIX: FIRST LINE WHITE, SECOND LINE ORANGE
+    # ==========================================
+    for i, line in enumerate(title_lines):
+        # Agar pehli line hai (0) toh white, warna Orange (#FF6B00)
+        text_color = "white" if i == 0 else "#FF6B00"
+        draw.text((x_offset, y_offset), line, font=font_title, fill=text_color)
+        y_offset += 90
 
     y_offset += 20
     draw.text((x_offset, y_offset), genres, font=font_genres, fill="#FF6B00")
@@ -128,9 +133,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     y_offset += 60
     draw.text((x_offset, y_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
 
-    # ==========================================
-    # FIX: BRANDING ON TOP LEFT
-    # ==========================================
     brand_x = 80
     brand_y = 60
     
@@ -142,7 +144,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         except Exception:
             pass 
 
-    # Draw Username
     draw.text((brand_x, brand_y + 15), username, font=font_brand, fill="white")
 
     buf = io.BytesIO()
