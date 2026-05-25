@@ -59,13 +59,17 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
     logo_img = None
+    # FIX: Safely handle both Local File paths (like branding.png) and URLs
     if logo_url:
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(logo_url) as resp:
-                    if resp.status == 200:
-                        logo_data = await resp.read()
-                        logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
+            if os.path.exists(logo_url):
+                logo_img = Image.open(logo_url).convert('RGBA')
+            else:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(logo_url) as resp:
+                        if resp.status == 200:
+                            logo_data = await resp.read()
+                            logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
         except Exception:
             pass
 
@@ -94,26 +98,25 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         username = apply_small_caps(username)
 
     try:
-        font_title = ImageFont.truetype(FONT_TITLE, 75) # Thoda chhota kiya taaki fit ho
+        font_title = ImageFont.truetype(FONT_TITLE, 75)
         font_genres = ImageFont.truetype(FONT_BODY, 35)
         font_synopsis = ImageFont.truetype(FONT_BODY, 30)
         font_brand = ImageFont.truetype(FONT_BODY, 40)
     except:
         font_title = font_genres = font_synopsis = font_brand = ImageFont.load_default()
 
-    # Text wrapping tighter to fit inside the right box
-    wrapped_title = textwrap.fill(title, width=22)
+    wrapped_title = textwrap.fill(title, width=25)
     title_lines = wrapped_title.split('\n')
 
     if len(synopsis) > 280:
         synopsis = synopsis[:277] + "..."
-    wrapped_synopsis = textwrap.fill(synopsis, width=45) # Tighter wrap
+    wrapped_synopsis = textwrap.fill(synopsis, width=45)
 
     # ==========================================
-    # FIX: Shifted coordinates further right (1000)
+    # FIX: TEXT SHIFTED BACK TO THE LEFT SIDE
     # ==========================================
-    x_offset = 1000 
-    y_offset = 250
+    x_offset = 80 
+    y_offset = 280
 
     for line in title_lines:
         draw.text((x_offset, y_offset), line, font=font_title, fill="white")
@@ -126,21 +129,20 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     draw.text((x_offset, y_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
 
     # ==========================================
-    # FIX: Safe Branding & Logo Paste
+    # FIX: BRANDING ON TOP LEFT
     # ==========================================
-    brand_x = 1000
-    brand_y = 80
+    brand_x = 80
+    brand_y = 60
     
     if logo_img:
         try:
-            # Safe paste with alpha composite
             logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS).convert('RGBA')
             final_img.paste(logo_img, (brand_x, brand_y), logo_img)
-            brand_x += 100 # Move text next to logo
+            brand_x += 100 
         except Exception:
-            pass # Ignore if logo fails to process
+            pass 
 
-    # Draw Username (Telegram Name)
+    # Draw Username
     draw.text((brand_x, brand_y + 15), username, font=font_brand, fill="white")
 
     buf = io.BytesIO()
