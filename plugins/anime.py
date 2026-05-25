@@ -5,7 +5,7 @@ import aiohttp
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
 from pyrogram.enums import ParseMode
-from pyrogram.exceptions import StopPropagation
+from pyrogram import StopPropagation
 from bot import Bot
 from databases.database import db
 from plugins.thumbnail_maker import generate_poster
