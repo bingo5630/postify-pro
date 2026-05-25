@@ -7,7 +7,7 @@ from logging.handlers import RotatingFileHandler
 
 
 #Bot token @Botfather, --⚠️ REQUIRED--
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
+TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "7957642290:AAHLF7NGqcbsZ75cvS05S5S7FIE8AqrLhqk")
 #Your API ID from my.telegram.org --⚠️ REQUIRED--
 APP_ID = int(os.environ.get("APP_ID", "24371796"))
 
@@ -24,8 +24,8 @@ SUPPORT_GROUP = os.environ.get("SUPPORT_GROUP", "-1002361458256")
 PORT = os.environ.get("PORT", "8040")
 
 #Database --⚠️ REQUIRED--
-DB_URL = os.environ.get("DB_URL", "mongodb+srv://adamopytbusiness1:uSswEjo4ZHMGDU8Z@cluster0.gqgmk.mongodb.net/?retryWrites=true&w=majority&appName=MihawkFluxBot")
-DB_NAME = os.environ.get("DATABASE_NAME", "Mihawk_Flux_Bot")
+DB_URL = os.environ.get("DB_URL", "mongodb+srv://adamopytbusiness1:uSswEjo4ZHMGDU8Z@cluster0.gqgmk.mongodb.net/?retryWrites=true&w=majority&appName=Postifyprobot")
+DB_NAME = os.environ.get("DATABASE_NAME", "postifyprobot")
 
 START_PIC = os.environ.get("START_PIC", "https://graph.org/file/903f5b233999f02fa6015-76938468f549dac193.jpg")
 FORCE_PIC = os.environ.get("FORCE_PIC", "https://graph.org/file/d14344c65c52acc05cb1e-8e5ac58617613aafa2.jpg")
