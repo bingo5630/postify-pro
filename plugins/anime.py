@@ -328,15 +328,10 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     title = anime['title']['english'] or anime['title']['romaji']
     genres = ", ".join(anime.get('genres', [])[:3])
     
-    # ==========================================
-    # FIX: PREVENT TELEGRAM CAPTION LENGTH CRASH
-    # ==========================================
+    # Cleaning synopsis of basic HTML. dynamic will handle dynamic truncation based dynamic.
     synopsis = anime.get('description', '')
     if synopsis:
-        synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '')
-        # Telegram 1024 char limit ke liye truncate kar rahe hain
-        if len(synopsis) > 600:
-            synopsis = synopsis[:597] + "..."
+        synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
 
     images = user_data[user_id]['images']
     img_idx = user_data[user_id]['current_image_idx']
