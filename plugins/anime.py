@@ -349,6 +349,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     except:
         small_caps = False
 
+    # FIX 1: Generate poster with NORMAL text (Fixes the square boxes on the image!)
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
         custom_image_path=custom_image_path,
@@ -358,13 +359,53 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         username=username,
         logo_url=None,
         crop_state=crop_state,
-        small_caps=small_caps
+        small_caps=False  # <-- SET TO FALSE TO FIX DABBA FONT
     )
 
-    if small_caps:
-        caption = f"<b>{apply_small_caps(title)}</b>\n\n<b>Audio:</b> {apply_small_caps(audio)}\n<b>Genres:</b> {apply_small_caps(genres)}"
-    else:
-        caption = f"<b>{title}</b>\n\n<b>Audio:</b> {audio}\n<b>Genres:</b> {genres}"
+    # FIX 2: Fetch Custom Caption Format from Database
+    try:
+        caption_template = await db.get_caption(user_id)
+    except:
+        caption_template = None
+
+    # Fallback format if DB is empty
+    if not caption_template:
+        caption_template = "<b>{title}</b>\n\n» Type: <code>{type}</code>\n» Rating: <code>{rating}</code>\n» Status: <code>{status}</code>\n» Episodes: <code>{episodes}</code>\n» Genre: {genres}\n\n<blockquote expandable>➤ Synopsis: {plot}</blockquote>"
+
+    # Safely extract extra metadata variables (falling back to N/A if API didn't provide them)
+    anime_type = str(anime.get('format', anime.get('type', 'TV')))
+    rating = str(anime.get('averageScore', anime.get('score', 'N/A')))
+    status = str(anime.get('status', 'FINISHED'))
+    episodes = str(anime.get('episodes', 'N/A'))
+
+    # Apply small caps ONLY to the values, so it doesn't break HTML tags like <b> or <code>
+    v_title = apply_small_caps(title) if small_caps else title
+    v_type = apply_small_caps(anime_type) if small_caps else anime_type
+    v_rating = apply_small_caps(rating) if small_caps else rating
+    v_status = apply_small_caps(status) if small_caps else status
+    v_episodes = apply_small_caps(episodes) if small_caps else episodes
+    v_genres = apply_small_caps(genres) if small_caps else genres
+    v_plot = apply_small_caps(synopsis) if small_caps else synopsis
+    v_audio = apply_small_caps(audio) if small_caps else audio
+
+    # Inject data into user's custom caption format
+    try:
+        caption = caption_template.format(
+            title=v_title,
+            type=v_type,
+            rating=v_rating,
+            status=v_status,
+            episodes=v_episodes,
+            genres=v_genres,
+            plot=v_plot,
+            synopsis=v_plot,
+            audio=v_audio,
+            year="N/A",
+            season="N/A"
+        )
+    except Exception as e:
+        # Emergency fallback if format fails due to a missing tag
+        caption = f"<b>{v_title}</b>\n\n<b>Audio:</b> {v_audio}\n<b>Genres:</b> {v_genres}"
 
     await callback_query.message.delete()
     await client.send_photo(
