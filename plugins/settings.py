@@ -118,7 +118,10 @@ async def settings_main_cb(client: Client, query: CallbackQuery):
 async def anime_settings_cb(client: Client, query: CallbackQuery):
     user = query.from_user
     await query.edit_message_caption(caption=WAIT_MSG)
-    header = get_header("Anime Settings", user.id, user.first_name)
+    header = get_header("Anime Settings")
+
+    from databases.database import db
+    current_brand_text = await db.get_anime_brand_text(user.id) or "FOR MORE VISIT @ANIME_VERSE"
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Caption"), callback_data="set_anime_caption"), InlineKeyboardButton(apply_small_caps("Buttons"), callback_data="set_anime_buttons")],
@@ -128,14 +131,14 @@ async def anime_settings_cb(client: Client, query: CallbackQuery):
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="settings_main")]
     ])
     try:
-        await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + get_anime_settings_text()), reply_markup=keyboard)
+        await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + get_anime_settings_text(current_branding=current_brand_text)), reply_markup=keyboard)
     except:
         pass
 
 @Bot.on_callback_query(filters.regex('^set_anime_caption$'))
 async def anime_caption_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
-    header = get_header("Caption Settings", query.from_user.id, query.from_user.first_name)
+    header = get_header("Caption Settings")
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Set Text"), callback_data="set_anime_caption_text")],
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
@@ -157,7 +160,7 @@ async def anime_caption_text_cb(client: Client, query: CallbackQuery):
 @Bot.on_callback_query(filters.regex('^set_anime_buttons$'))
 async def anime_buttons_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
-    header = get_header("Buttons Settings", query.from_user.id, query.from_user.first_name)
+    header = get_header("Buttons Settings")
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
     ])
@@ -166,7 +169,7 @@ async def anime_buttons_cb(client: Client, query: CallbackQuery):
 @Bot.on_callback_query(filters.regex('^set_anime_template$'))
 async def anime_template_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
-    header = get_header("Template Settings", query.from_user.id, query.from_user.first_name)
+    header = get_header("Template Settings")
 
     # We will assume "✅ ᴛᴇᴍᴘʟᴀᴛᴇ 1 (ᴍᴀɪɴ)" has small caps applied via function
     keyboard = InlineKeyboardMarkup([
@@ -186,19 +189,29 @@ async def anime_template_cb(client: Client, query: CallbackQuery):
 @Bot.on_callback_query(filters.regex('^set_anime_branding$'))
 async def anime_branding_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
-    header = get_header("Branding Settings", query.from_user.id, query.from_user.first_name)
+    header = get_header("Branding Settings")
+
+    from databases.database import db
+    user_id = query.from_user.id
+    current_brand_text = await db.get_anime_brand_text(user_id) or "@ANIME_FURY"
+    current_brand_logo = await db.get_anime_brand_logo(user_id) or "branding.png"
+
+    dynamic_branding_text = f"≡ Username: {current_brand_text}\n≡ Logo: {current_brand_logo}\n\n◉ CONFIGURE BRANDING OPTIONS BELOW: ❞"
+
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Set Text"), callback_data="set_anime_brand_text"), InlineKeyboardButton(apply_small_caps("Set Logo"), callback_data="set_anime_brand_logo")],
         [InlineKeyboardButton(apply_small_caps("Use Default"), callback_data="set_anime_brand_default")],
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
     ])
-    await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + BRANDING_TEXT), reply_markup=keyboard)
+    await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + dynamic_branding_text), reply_markup=keyboard)
 
 @Bot.on_callback_query(filters.regex('^set_anime_brand_text$'))
 async def anime_brand_text_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the custom text now.")
     try:
         response = await client.ask(query.from_user.id, "Send the custom text for branding now:", timeout=60)
+        from databases.database import db
+        await db.set_anime_brand_text(query.from_user.id, response.text)
         await response.reply_text(f"Text set to: {response.text}")
         await anime_branding_cb(client, query)
     except asyncio.TimeoutError:
@@ -209,6 +222,9 @@ async def anime_brand_logo_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the custom logo photo now.")
     try:
         response = await client.ask(query.from_user.id, "Send the custom logo photo for branding now:", filters=filters.photo, timeout=60)
+        photo_path = await response.download()
+        from databases.database import db
+        await db.set_anime_brand_logo(query.from_user.id, photo_path)
         await response.reply_text("Logo successfully set.")
         await anime_branding_cb(client, query)
     except asyncio.TimeoutError:
@@ -216,6 +232,8 @@ async def anime_brand_logo_cb(client: Client, query: CallbackQuery):
 
 @Bot.on_callback_query(filters.regex('^set_anime_brand_default$'))
 async def anime_brand_default_cb(client: Client, query: CallbackQuery):
+    from databases.database import db
+    await db.del_anime_branding(query.from_user.id)
     await query.answer("Reverted to default branding.", show_alert=True)
     await anime_branding_cb(client, query)
 
@@ -254,7 +272,7 @@ async def anime_font_cb(client: Client, query: CallbackQuery):
                 t[key] = not t[key]
 
     await query.edit_message_caption(caption=WAIT_MSG)
-    header = get_header("Font Settings", query.from_user.id, query.from_user.first_name)
+    header = get_header("Font Settings")
 
     def btn_label(state, name):
         return apply_small_caps(f"{'✅' if state else '❌'} {name}")

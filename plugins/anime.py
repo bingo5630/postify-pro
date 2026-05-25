@@ -313,6 +313,18 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     except:
         small_caps = False
 
+    try:
+        from databases.database import db
+        db_brand_text = await db.get_anime_brand_text(user_id)
+        db_brand_logo = await db.get_anime_brand_logo(user_id)
+
+        # Override if db returns something valid
+        if db_brand_text:
+            username = db_brand_text
+
+    except Exception as e:
+        db_brand_logo = None
+
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
         custom_image_path=custom_image_path,
@@ -320,7 +332,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         genres=genres,
         synopsis=synopsis,
         username=username,
-        logo_url=None,
+        logo_url=db_brand_logo,
         crop_state=crop_state,
         small_caps=small_caps
     )

@@ -71,11 +71,14 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     logo_img = None
     if logo_url:
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(logo_url) as resp:
-                    if resp.status == 200:
-                        logo_data = await resp.read()
-                        logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
+            if logo_url.startswith("http"):
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(logo_url) as resp:
+                        if resp.status == 200:
+                            logo_data = await resp.read()
+                            logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
+            elif os.path.exists(logo_url):
+                logo_img = Image.open(logo_url).convert('RGBA')
         except Exception as e:
             pass
 
