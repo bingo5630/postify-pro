@@ -14,6 +14,9 @@ HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
 FONT_TITLE = os.path.join(FONTS_DIR, "Montserrat-Black.ttf")
 FONT_BODY = os.path.join(FONTS_DIR, "Roboto-Medium.ttf")
 
+# ==========================================
+# SMART LOGO CLEANER (Removes Black BG for B&W Logos)
+# ==========================================
 def clean_logo(img):
     img = img.convert("RGBA")
     if img.getextrema()[3][0] < 255:
@@ -96,12 +99,17 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
     # ==========================================
-    # FIX: Perfect Alpha Transparency Extraction (No Halos)
+    # ULTIMATE FIX: BULLETPROOF HEXAGON MASK
     # ==========================================
-    try:
-        hex_mask = fetched_mask.split()[3] 
-    except IndexError:
-        hex_mask = fetched_mask.convert('L')
+    # Ek solid black canvas banayenge jisse image bahar bleed na kare
+    solid_mask = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
+    # Uske upar mask ko paste karenge
+    solid_mask.paste(fetched_mask, (0, 0), fetched_mask)
+    
+    # Grayscale mein convert karenge aur sharp cut (128 threshold) lagayenge 
+    # Taaki white halos/lines ekdam khatam ho jaye!
+    hex_mask = solid_mask.convert('L')
+    hex_mask = hex_mask.point(lambda p: 255 if p > 128 else 0)
 
     anime_artwork = crop_image(anime_img, hex_mask.size, crop_state)
     
@@ -127,7 +135,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     title_lines = wrapped_title.split('\n')
 
     # ==========================================
-    # FIX: Shorter Synopsis + "...read more"
+    # FIX: Short Synopsis + "...read more"
     # ==========================================
     if len(synopsis) > 180:
         synopsis = synopsis[:177].rsplit(' ', 1)[0] + "...read more"
