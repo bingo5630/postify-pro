@@ -135,4 +135,46 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         font_title = font_genres = font_synopsis = font_brand = font_title_orange = ImageFont.load_default()
 
     wrapped_title = textwrap.fill(title.upper(), width=17) 
-    title_lines = wrapped_title.
+    title_lines = wrapped_title.split('\n')
+
+    # Base Y offset
+    y_dynamic_offset = 280
+
+    for i, line in enumerate(title_lines):
+        if i == 0:
+            draw.text((x_offset, y_dynamic_offset), line, font=font_title, fill="white")
+            y_dynamic_offset += 100 
+        else:
+            draw.text((x_offset, y_dynamic_offset), line, font=font_title_orange, fill="#FF6B00")
+            y_dynamic_offset += 75 
+
+    y_dynamic_offset += 20
+    draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill="#FF6B00")
+
+    synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) 
+    
+    if len(synopsis) > synopsis_dynamic_max_chars:
+        synopsis = synopsis[:synopsis_dynamic_max_chars].rsplit(' ', 1)[0] + "...read more"
+    wrapped_synopsis = textwrap.fill(synopsis, width=45)
+
+    y_dynamic_offset += 60
+    draw.text((x_offset, y_dynamic_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
+
+    brand_x = 80
+    brand_y = 60
+    
+    if logo_img:
+        try:
+            logo_img = clean_logo(logo_img)
+            logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS).convert('RGBA')
+            final_img.paste(logo_img, (brand_x, brand_y), logo_img)
+            brand_x += 100 
+        except Exception:
+            pass 
+
+    draw.text((brand_x, brand_y + 15), username, font=font_brand, fill="white")
+
+    buf = io.BytesIO()
+    final_img.save(buf, format='PNG')
+    buf.seek(0)
+    return buf
