@@ -99,17 +99,15 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
     # ==========================================
-    # ULTIMATE FIX: BULLETPROOF HEXAGON MASK
+    # ULTIMATE WHITE LINE KILLER (STRICT BINARY MASK)
     # ==========================================
-    # Ek solid black canvas banayenge jisse image bahar bleed na kare
-    solid_mask = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
-    # Uske upar mask ko paste karenge
-    solid_mask.paste(fetched_mask, (0, 0), fetched_mask)
-    
-    # Grayscale mein convert karenge aur sharp cut (128 threshold) lagayenge 
-    # Taaki white halos/lines ekdam khatam ho jaye!
-    hex_mask = solid_mask.convert('L')
-    hex_mask = hex_mask.point(lambda p: 255 if p > 128 else 0)
+    try:
+        hex_mask = fetched_mask.split()[3] 
+        # > 150 ensures we shrink the edge pixels slightly to hide behind the frame
+        hex_mask = hex_mask.point(lambda p: 255 if p > 150 else 0)
+    except IndexError:
+        hex_mask = fetched_mask.convert('L')
+        hex_mask = hex_mask.point(lambda p: 255 if p > 150 else 0)
 
     anime_artwork = crop_image(anime_img, hex_mask.size, crop_state)
     
@@ -124,36 +122,44 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         username = apply_small_caps(username)
 
     try:
-        font_title = ImageFont.truetype(FONT_TITLE, 80)
-        font_genres = ImageFont.truetype(FONT_BODY, 35)
-        font_synopsis = ImageFont.truetype(FONT_BODY, 30)
+        font_title = ImageFont.truetype(FONT_TITLE, 80) 
+        font_genres = ImageFont.truetype(FONT_BODY, 35) 
+        font_synopsis = ImageFont.truetype(FONT_BODY, 30) 
         font_brand = ImageFont.truetype(FONT_BODY, 40)
     except:
         font_title = font_genres = font_synopsis = font_brand = ImageFont.load_default()
 
-    wrapped_title = textwrap.fill(title.upper(), width=16) 
+    # Wrap title
+    wrapped_title = textwrap.fill(title.upper(), width=17) 
     title_lines = wrapped_title.split('\n')
 
     # ==========================================
-    # FIX: Short Synopsis + "...read more"
+    # SMART DYNAMIC SYNOPSIS LENGTH
+    # Based on how many lines the title takes!
     # ==========================================
-    if len(synopsis) > 180:
-        synopsis = synopsis[:177].rsplit(' ', 1)[0] + "...read more"
+    # Base 240 chars. Subtract 65 chars for every extra title line.
+    dynamic_max_chars = 240 - ((len(title_lines) - 1) * 65)
+    
+    if len(synopsis) > dynamic_max_chars:
+        synopsis = synopsis[:dynamic_max_chars].rsplit(' ', 1)[0] + " ...read more"
     wrapped_synopsis = textwrap.fill(synopsis, width=45)
 
     x_offset = 80 
-    y_offset = 280
+    y_dynamic_offset = 280
 
+    # Draw Title Lines
     for i, line in enumerate(title_lines):
         text_color = "white" if i == 0 else "#FF6B00"
-        draw.text((x_offset, y_offset), line, font=font_title, fill=text_color)
-        y_offset += 90
+        draw.text((x_offset, y_dynamic_offset), line, font=font_title, fill=text_color)
+        y_dynamic_offset += 85 # Tighter line spacing for title
 
-    y_offset += 20
-    draw.text((x_offset, y_offset), genres, font=font_genres, fill="#FF6B00")
+    # Draw Genres
+    y_dynamic_offset += 15 # Smaller gap
+    draw.text((x_offset, y_dynamic_offset), genres, font=font_genres, fill="#FF6B00")
 
-    y_offset += 60
-    draw.text((x_offset, y_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
+    # Draw Synopsis
+    y_dynamic_offset += 50 # Adjusted gap so it never touches buttons
+    draw.text((x_offset, y_dynamic_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
 
     brand_x = 80
     brand_y = 60
