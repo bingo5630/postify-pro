@@ -378,7 +378,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         title=title,
         genres=genres,
         synopsis=synopsis,
- cleanup-poster-bot-refactor-17135537001999441390
         username=username,
         logo_url=db_brand_logo,
 
