@@ -109,7 +109,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         binary_mask = fetched_mask.convert('L')
         binary_mask = binary_mask.point(lambda p: 255 if p > 250 else 0)
 
-    # ERROR FIXED: Replaced hex_mask.size with binary_mask.size
     anime_artwork = crop_image(anime_img, binary_mask.size, crop_state)
     
     final_img = base_template.copy()
@@ -137,7 +136,8 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     wrapped_title = textwrap.fill(title.upper(), width=17) 
     title_lines = wrapped_title.split('\n')
 
-    # Base Y offset
+    # FIX: Added x_offset back!
+    x_offset = 80
     y_dynamic_offset = 280
 
     for i, line in enumerate(title_lines):
