@@ -14,10 +14,10 @@ from plugins.utils import apply_small_caps
 
 user_data = {}
 
-# Yahan apni Fanart.tv ki API Key daal dena
+# Fanart API Key pehle se set kar di hai!
 FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
-async def fetch_extra_images(title, mal_id=None):
+async def fetch_extra_images(title_eng, title_rom, mal_id=None):
     extra_images = []
     
     # 1. Jikan (MAL) High-Res Pictures
@@ -34,26 +34,43 @@ async def fetch_extra_images(title, mal_id=None):
         except Exception:
             pass
 
-    # 2. Fanart.tv Integration (FIXED URL ENCODING)
+    # 2. Fanart.tv Integration (SMART TITLE CLEANER)
     if FANART_API_KEY:
+        # Alag-alag naam try karenge taaki API fail na ho
+        search_titles = []
+        for t in [title_eng, title_rom]:
+            if not t: continue
+            search_titles.append(t) # Original
+            search_titles.append(re.sub(r'[^a-zA-Z0-9\s]', ' ', t).strip()) # Without symbols
+            if ':' in t:
+                search_titles.append(t.split(':')[0].strip()) # Only base name (e.g. Wistoria)
+                
+        # Remove duplicates
+        search_titles = list(dict.fromkeys(search_titles))
+        
         try:
             async with aiohttp.ClientSession() as session:
-                encoded_title = urllib.parse.quote(title)
-                url = f"https://webservice.fanart.tv/v3/search/tv?api_key={FANART_API_KEY}&query={encoded_title}"
-                async with session.get(url) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        if data and isinstance(data, list) and len(data) > 0:
-                            tv_id = data[0].get('tvdb_id')
-                            if tv_id:
-                                img_url = f"https://webservice.fanart.tv/v3/tv/{tv_id}?api_key={FANART_API_KEY}"
-                                async with session.get(img_url) as img_resp:
-                                    if img_resp.status == 200:
-                                        img_data = await img_resp.json()
-                                        for bg in img_data.get('showbackground', []):
-                                            extra_images.append(bg['url'])
-                                        for poster in img_data.get('tvposter', []):
-                                            extra_images.append(poster['url'])
+                tv_id = None
+                for t in search_titles:
+                    encoded_title = urllib.parse.quote(t)
+                    url = f"https://webservice.fanart.tv/v3/search/tv?api_key={FANART_API_KEY}&query={encoded_title}"
+                    async with session.get(url) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if data and isinstance(data, list) and len(data) > 0:
+                                tv_id = data[0].get('tvdb_id')
+                                if tv_id:
+                                    break # ID mil gaya, search loop band karo!
+                
+                if tv_id:
+                    img_url = f"https://webservice.fanart.tv/v3/tv/{tv_id}?api_key={FANART_API_KEY}"
+                    async with session.get(img_url) as img_resp:
+                        if img_resp.status == 200:
+                            img_data = await img_resp.json()
+                            # Sab categories ke high quality images utha lo
+                            for key in ['tvposter', 'showbackground', 'characterart', 'hdclearart']:
+                                for item in img_data.get(key, []):
+                                    extra_images.append(item['url'])
         except Exception:
             pass
             
@@ -112,7 +129,7 @@ async def fetch_anime_search(query, source="anilist"):
             if 'data' in data and 'Page' in data['data'] and 'media' in data['data']['Page']:
                 results = []
                 for item in data['data']['Page']['media']:
-                    item['mal_id'] = item.get('idMal') # Store MAL ID from Anilist
+                    item['mal_id'] = item.get('idMal') 
                     results.append(item)
                 return results
     return []
@@ -209,6 +226,11 @@ async def close_anime_menu(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 
+# ==========================================
+# STAGE 1: INITIAL PREVIEW KEYBOARD
+# Left: Custom Img | Right: Skip
+# Bottom: Cancel
+# ==========================================
 def get_initial_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Custom Img"), callback_data="anime_thumb_custom"),
@@ -230,15 +252,16 @@ async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
     selected_anime = user_data[user_id]['results'][idx]
     user_data[user_id]['selected_anime'] = selected_anime
 
-    title = selected_anime['title']['english'] or selected_anime['title']['romaji']
+    title_eng = selected_anime['title'].get('english', '')
+    title_rom = selected_anime['title'].get('romaji', '')
     
     # Base images
     images = []
     if selected_anime.get('bannerImage'): images.append(selected_anime['bannerImage'])
     if selected_anime.get('coverImage', {}).get('extraLarge'): images.append(selected_anime['coverImage']['extraLarge'])
     
-    # Fetch Extra from Jikan/Fanart using mal_id
-    extra = await fetch_extra_images(title, mal_id=selected_anime.get('mal_id'))
+    # Fetch Extra from Jikan/Fanart using Smart Titles
+    extra = await fetch_extra_images(title_eng, title_rom, mal_id=selected_anime.get('mal_id'))
     images.extend(extra)
     
     # Remove duplicates but keep order
@@ -311,6 +334,9 @@ async def handle_anime_audio_custom(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 
+# ==========================================
+# POSTER GENERATION LOGIC
+# ==========================================
 async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
@@ -390,7 +416,11 @@ async def build_final_poster(client, callback_query, user_id):
     caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
     return poster_buf, caption
 
-
+# ==========================================
+# STAGE 3: THE FINAL BOLD BUTTONS
+# Left: [ 𝗦𝗞𝗜𝗣 ] | Right: [ 𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘 ]
+# Bottom: Cancel
+# ==========================================
 def get_final_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗦𝗞𝗜𝗣", callback_data="final_done"),
