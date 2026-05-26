@@ -35,27 +35,16 @@ def enhance_image(img):
     img = ImageEnhance.Color(img).enhance(1.2)
     return img.convert("RGBA")
 
-def crop_image(img, target_size, crop_state):
-    target_width, target_height = target_size
-    img_ratio = img.width / img.height
-    target_ratio = target_width / target_height
-
-    if img_ratio > target_ratio:
-        new_width = int(target_ratio * img.height)
-        if crop_state == 0: 
-            left = (img.width - new_width) // 2
-        elif crop_state == 1: 
-            left = 0
-        else: 
-            left = img.width - new_width
-
-        img = img.crop((left, 0, left + new_width, img.height))
-    elif img_ratio < target_ratio:
-        new_height = int(img.width / target_ratio)
-        top = (img.height - new_height) // 2
-        img = img.crop((0, top, img.width, top + new_height))
-
-    return img.resize(target_size, Image.Resampling.LANCZOS)
+# ==========================================
+# FIX: RESIZE AND FIT (NO CROP)
+# Image ko zabardasti hexagon ke shape mein compress (shrink) karega.
+# Koi face nahi katega, bas image thodi choti ho jayegi aur fit ho jayegi.
+# ==========================================
+def fit_image(img, target_size):
+    # ImageOps.pad resizes the image to fit within target_size without losing aspect ratio.
+    # It adds black padding if necessary.
+    fitted_img = ImageOps.pad(img, target_size, method=Image.Resampling.LANCZOS, color=(0, 0, 0, 255))
+    return fitted_img
 
 def apply_small_caps(text):
     if not text: return text
@@ -64,7 +53,8 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False):
+# Crop_state hata diya gaya hai argument se
+async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, small_caps=False):
 
     if custom_image_path:
         anime_img = Image.open(custom_image_path).convert('RGBA')
@@ -88,26 +78,16 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
-    # ==========================================
-    # ULTIMATE WHITE BORDER KILLER (EXPANDED HOLE PUNCH)
-    # ==========================================
-    
-    # 1. Mask ko strict Black & White banaya
     strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
-    
-    # 2. MASK EXPANSION: Hum mask ko 7 pixels phaila rahe hain!
-    # Isse jab hole punch hoga, toh template ki safed border poori tarah kat jayegi!
     expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
-    
-    # 3. Mask ko Invert kiya
     inverse_mask = ImageOps.invert(expanded_mask)
     
-    # 4. Template mein Expanded chhed (hole) bana diya
     r, g, b, a = base_template.split()
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
-    anime_artwork = crop_image(anime_img, base_template.size, crop_state)
+    # FIX: Image ab fit_image method se shrink hokar frame mein ghusegi!
+    anime_artwork = fit_image(anime_img, base_template.size)
     anime_artwork = enhance_image(anime_artwork)
     
     final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
