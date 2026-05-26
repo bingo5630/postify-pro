@@ -16,6 +16,23 @@ user_data = {}
 
 FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
+# ==========================================
+# 11 COLOUR TEMPLATES & HEX CODES
+# ==========================================
+COLORS = [
+    {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"}, # Default Local
+    {"name": "GREEN", "hex": "#28a745", "url": "https://i.ibb.co/G4GhnCsZ/green.png"},
+    {"name": "NAVY GREEN", "hex": "#4A5D23", "url": "https://i.ibb.co/1fVPgwqd/navy-green.png"},
+    {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://i.ibb.co/yTznRcZ/dark-yellow.png"},
+    {"name": "PINK", "hex": "#FF69B4", "url": "https://i.ibb.co/b5DVk3LR/pink.png"},
+    {"name": "BLUE", "hex": "#007BFF", "url": "https://i.ibb.co/pjz3Ts34/blue.png"},
+    {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://i.ibb.co/C3jnf6sr/pale-green.png"},
+    {"name": "RED", "hex": "#DC143C", "url": "https://i.ibb.co/9m1V2CPM/red.png"},
+    {"name": "TEAL BLUE", "hex": "#008080", "url": "https://i.ibb.co/LXD0djss/teal-blue.png"},
+    {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://i.ibb.co/FLqd5jt4/dark-purple.png"},
+    {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://i.ibb.co/yc8zYYYt/purple.png"}
+]
+
 async def fetch_extra_images(title_eng, title_rom, mal_id=None):
     extra_images = []
     
@@ -141,10 +158,12 @@ async def anime_cmd(client: Bot, message: Message):
         'results': [],
         'selected_anime': None,
         'crop_state': 0,
+        'color_state': 0, # NEW: Color Template Tracker
         'images': [],
         'current_image_idx': 0,
         'audio': None,
         'custom_image': None,
+        'photo_msg_id': None, # NEW: Real Poster Message ID Tracker
         'timestamp': time.time()
     }
 
@@ -215,7 +234,12 @@ async def handle_mal_search(client: Bot, callback_query: CallbackQuery):
 async def close_anime_menu(client: Bot, callback_query: CallbackQuery):
     await callback_query.answer()
     user_id = callback_query.from_user.id
-    if user_id in user_data: del user_data[user_id]
+    if user_id in user_data:
+        try:
+            if user_data[user_id].get('photo_msg_id'):
+                await client.delete_messages(chat_id=user_id, message_ids=user_data[user_id]['photo_msg_id'])
+        except: pass
+        del user_data[user_id]
     await callback_query.message.delete()
     raise StopPropagation
 
@@ -323,13 +347,13 @@ async def handle_anime_audio_custom(client: Bot, callback_query: CallbackQuery):
 async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
-    genres = ", ".join(anime.get('genres', [])[:3])
+    
+    # FIX: NO COMMAS IN GENRES, JUST DOUBLE SPACES
+    genres = "  ".join(anime.get('genres', [])[:3])
     
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
-    
-    # 1024 Character Telegram Crash Safety net
     if synopsis and len(synopsis) > 300:
         synopsis = synopsis[:297] + "..."
 
@@ -338,7 +362,10 @@ async def build_final_poster(client, callback_query, user_id):
     image_url = images[img_idx] if images else "https://via.placeholder.com/1920x1080"
     custom_image_path = user_data[user_id].get('custom_image')
     crop_state = user_data[user_id]['crop_state']
+    color_state = user_data[user_id]['color_state']
     audio = user_data[user_id].get('audio', 'N/A')
+
+    color_info = COLORS[color_state]
 
     try:
         from plugins.settings import font_toggles
@@ -369,7 +396,9 @@ async def build_final_poster(client, callback_query, user_id):
         username=final_username,
         logo_url=custom_logo,    
         crop_state=crop_state,
-        small_caps=False  
+        small_caps=False,
+        template_url=color_info['url'], 
+        color_hex=color_info['hex']
     )
 
     try:
@@ -398,17 +427,15 @@ async def build_final_poster(client, callback_query, user_id):
     except Exception:
         caption = f"<b>{v_title}</b>\n\n<b>Audio:</b> {v_audio}\n<b>Genres:</b> {v_genres}"
 
-    caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
     return poster_buf, caption
 
-# ==========================================
-# 5 BUTTON LAYOUT (All BOLD)
-# ==========================================
-def get_final_keyboard():
+def get_final_keyboard(color_state):
+    color_name = COLORS[color_state]['name']
+    
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗠𝗢𝗩𝗘", callback_data="anime_final_move"),
          InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
-        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_final_back"),
+        [InlineKeyboardButton(f"🎨 {color_name}", callback_data="anime_final_color"),
          InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done")],
         [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
     ])
@@ -436,39 +463,45 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             await callback_query.message.delete()
         except: pass
         
-        await client.send_photo(
+        # FIX: SEND POSTER SEPARATELY FOR CLEAN SHARING
+        photo_msg = await client.send_photo(
             chat_id=user_id,
             photo=poster_buf,
             caption=caption,
-            parse_mode=ParseMode.HTML,
-            reply_markup=get_final_keyboard()
+            parse_mode=ParseMode.HTML
         )
+        
+        user_data[user_id]['photo_msg_id'] = photo_msg.id
+        
+        # SEND BUTTONS SEPARATELY
+        await client.send_message(
+            chat_id=user_id,
+            text=f"⚙️ **{apply_small_caps('POSTER CONTROLS:')}**\nUse buttons below to modify your poster:",
+            reply_markup=get_final_keyboard(user_data[user_id]['color_state'])
+        )
+
     except Exception as e:
         await client.send_message(chat_id=user_id, text=f"Generation failed: {e}")
 
     raise StopPropagation
 
-# ==========================================
-# MOVE BUTTON: Shifts Focus UP, CENTER, DOWN!
-# ==========================================
+
 @Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
 async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     if user_id not in user_data:
-        await callback_query.answer("Session expired.", show_alert=True)
-        raise StopPropagation
+        return await callback_query.answer("Session expired.", show_alert=True)
 
-    # Cycle Crop State (0=Center, 1=Top, 2=Bottom)
     user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
-    
-    states = ["Center Focus", "Top Focus (Face)", "Bottom Focus"]
+    states = ["Right Focus", "Center Focus", "Left Focus"]
     await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
-        await callback_query.edit_message_media(
-            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
-            reply_markup=get_final_keyboard()
+        await client.edit_message_media(
+            chat_id=user_id,
+            message_id=user_data[user_id]['photo_msg_id'],
+            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML)
         )
     except Exception:
         pass
@@ -478,39 +511,44 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     if user_id not in user_data:
-        await callback_query.answer("Session expired.", show_alert=True)
-        raise StopPropagation
+        return await callback_query.answer("Session expired.", show_alert=True)
 
     user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
-
     await callback_query.answer("Loading next image...", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
-        await callback_query.edit_message_media(
-            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
-            reply_markup=get_final_keyboard()
+        await client.edit_message_media(
+            chat_id=user_id,
+            message_id=user_data[user_id]['photo_msg_id'],
+            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML)
         )
     except Exception:
         pass
     raise StopPropagation
 
-@Bot.on_callback_query(filters.regex("^anime_final_back$"), group=-1)
-async def handle_anime_final_back(client: Bot, callback_query: CallbackQuery):
+@Bot.on_callback_query(filters.regex("^anime_final_color$"), group=-1)
+async def handle_anime_final_color(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     if user_id not in user_data:
-        await callback_query.answer("Session expired.", show_alert=True)
-        raise StopPropagation
+        return await callback_query.answer("Session expired.", show_alert=True)
 
-    user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] - 1) % max(1, len(user_data[user_id]['images']))
-
-    await callback_query.answer("Loading previous image...", show_alert=False)
+    user_data[user_id]['color_state'] = (user_data[user_id]['color_state'] + 1) % len(COLORS)
+    color_name = COLORS[user_data[user_id]['color_state']]['name']
+    
+    await callback_query.answer(f"Applying {color_name} template...", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
-        await callback_query.edit_message_media(
-            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
-            reply_markup=get_final_keyboard()
+        
+        await client.edit_message_media(
+            chat_id=user_id,
+            message_id=user_data[user_id]['photo_msg_id'],
+            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML)
+        )
+        
+        await callback_query.edit_message_reply_markup(
+            reply_markup=get_final_keyboard(user_data[user_id]['color_state'])
         )
     except Exception:
         pass
@@ -519,8 +557,8 @@ async def handle_anime_final_back(client: Bot, callback_query: CallbackQuery):
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-    await callback_query.answer("Poster Done!")
-    await callback_query.edit_message_reply_markup(reply_markup=None)
+    await callback_query.answer("Poster Done! Safe to share.")
+    await callback_query.message.delete()
     
     if user_id in user_data:
         del user_data[user_id]
