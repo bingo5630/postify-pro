@@ -42,7 +42,6 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-# Ab crop_state wapas aagaya hai 2 styles handle karne ke liye
 async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False):
 
     if custom_image_path:
@@ -80,15 +79,18 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     # TUMHARA 2-STEP LOGIC YAHAN HAI:
     # ==========================================
     if crop_state == 0:
-        # STYLE 1: Full Fit (Pehle wala - Screen bhar dega, par face kat sakta hai vertical hone par)
+        # STYLE 1: Full Fit (Screen bhar dega, par face kat sakta hai vertical hone par)
         anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
     else:
-        # STYLE 2: TUMHARA MANUAL IDEA (Center Fit with Background)
-        # 1. Background ko blur kar diya (Black se better look ke liye)
-        blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(25))
+        # STYLE 2: TUMHARA MANUAL IDEA (16:9 Center Fit with Background)
+        
+        # 1. 1920x1080 ka background banaya aur heavily blur kar diya
+        blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+        blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35)) # Heavy blur for premium look
+        blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.6) # Thoda dark kiya taaki main image pop ho
         anime_artwork = blurred_bg.convert('RGBA')
         
-        # 2. Original image ko chhota (shrink) karke beech mein chipka diya (Koi face nahi katega)
+        # 2. Original image ko chhota karke 16:9 canvas ke theek beech mein chipka diya
         fitted = ImageOps.contain(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
         offset_x = (base_template.size[0] - fitted.size[0]) // 2
         offset_y = (base_template.size[1] - fitted.size[1]) // 2
