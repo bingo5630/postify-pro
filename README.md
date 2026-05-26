@@ -1,6 +1,6 @@
 ### <h1>ADVANCE FILE SHARE BOT V5 🤖</h1>
 <img src="https://telegra.ph/file/e292b12890b8b4b9dcbd1.jpg">
-<blockquote><b>THIS IS AN ADVANCE FILE SHARING BOT WITH TOKEN VERIFICATION SYSTEM AND LINK BYPASS DETECTION, MADE BY ➪ <br><a href="https://t.me/Urr_Sanjiii">𝐒ᴀɴJɪ 𝐒ᴀᴍᴀ</a> & <a href="https://t.me/metaui">📚 𝐇 𝐀 𝐌 𝐙 𝐀</a><br> HERE ONLY THE HIGHLIGHTED FEATURES ARE MENTIONED BELOW ;</b></blockquote>
+<blockquote><b>THIS IS AN ADVANCE BOT, MADE BY ➪ <br><a href="https://t.me/Urr_Sanjiii">𝐒ᴀɴJɪ 𝐒ᴀᴍᴀ</a> HERE ONLY THE HIGHLIGHTED FEATURES ARE MENTIONED BELOW ;</b></blockquote>
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
