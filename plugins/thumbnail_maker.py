@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import asyncio
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageChops
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageChops, ImageEnhance
 import textwrap
 import io
 
@@ -27,6 +27,13 @@ def clean_logo(img):
     white_img = Image.new("RGBA", img.size, (255, 255, 255, 255))
     white_img.putalpha(img.convert("L"))
     return white_img
+
+def enhance_image(img):
+    img = img.convert("RGB")
+    img = ImageEnhance.Sharpness(img).enhance(2.0)
+    img = ImageEnhance.Contrast(img).enhance(1.2)
+    img = ImageEnhance.Color(img).enhance(1.2)
+    return img.convert("RGBA")
 
 def crop_image(img, target_size, crop_state):
     target_width, target_height = target_size
@@ -82,27 +89,30 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
     # ==========================================
-    # TUMHARA MASTER IDEA: INVERSE MASKING (THE HOLE PUNCH)
+    # ULTIMATE WHITE BORDER KILLER (EXPANDED HOLE PUNCH)
     # ==========================================
     
-    # 1. Mask ko ekdam strict Black & White banaya
+    # 1. Mask ko strict Black & White banaya
     strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
     
-    # 2. Mask ko Invert kiya (Jahan Hexagon tha wahan Black, baaki jagah White)
-    inverse_mask = ImageOps.invert(strict_mask)
+    # 2. MASK EXPANSION: Hum mask ko 7 pixels phaila rahe hain!
+    # Isse jab hole punch hoga, toh template ki safed border poori tarah kat jayegi!
+    expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
     
-    # 3. Base Template mein Hexagon ke aakar ka transparent chhed (hole) bana diya
+    # 3. Mask ko Invert kiya
+    inverse_mask = ImageOps.invert(expanded_mask)
+    
+    # 4. Template mein Expanded chhed (hole) bana diya
     r, g, b, a = base_template.split()
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
-    # 4. Anime Poster ko frame ke hisaab se crop kiya
     anime_artwork = crop_image(anime_img, base_template.size, crop_state)
+    anime_artwork = enhance_image(anime_artwork)
     
-    # 5. ASLI JADU: Anime ko peeche rakha aur Chhed wale Template ko uske UPAR chipka diya!
-    final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255)) # Black background base
-    final_img.paste(anime_artwork, (0, 0)) # Anime background mein
-    final_img.paste(base_template, (0, 0), base_template) # Frame aage se laga diya!
+    final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
+    final_img.paste(anime_artwork, (0, 0)) 
+    final_img.paste(base_template, (0, 0), base_template) 
 
     draw = ImageDraw.Draw(final_img)
 
