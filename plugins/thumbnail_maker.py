@@ -76,34 +76,42 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     base_template.putalpha(punched_alpha)
     
     # ==========================================
-    # TUMHARA MANUAL FIX: FULL POSTER ON 16:9 BLURRED BACKGROUND
+    # TUMHARA MASTER IDEA: RIGHT ALIGNMENT (NO ZOOM)
     # ==========================================
     
     # 1. 1920x1080 ka background banaya aur heavily blur kar diya
     blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
     blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
-    blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5) # Thoda dark kiya taaki poster chamke
+    blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
     anime_artwork = blurred_bg.convert('RGBA')
     
     # 2. Original image ko fit (contain) kiya taaki kuch bhi kate nahi (No Zoom)
     fitted = ImageOps.contain(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
     
-    # 3. MOVE logic: Shift full poster Left, Center, or Right
-    max_x = base_template.size[0] - fitted.size[0]
-    
-    if crop_state == 0:
-        offset_x = max_x // 2          # CENTER
-    elif crop_state == 1:
-        offset_x = int(max_x * 0.25)   # LEFT (Thoda left khiskaya)
+    # 3. Hexagon mask ka exact Center (X-axis) nikalna
+    bbox = strict_mask.getbbox()
+    if bbox:
+        hex_center_x = (bbox[0] + bbox[2]) // 2
     else:
-        offset_x = int(max_x * 0.75)   # RIGHT (Thoda right khiskaya)
+        hex_center_x = int(base_template.size[0] * 0.75) # Default Right side
+        
+    canvas_center_x = base_template.size[0] // 2
+    canvas_left_x = int(base_template.size[0] * 0.25)
+    
+    # 4. MOVE logic (Shift full poster Right, Center, or Left)
+    # Default (crop_state 0) ab RIGHT (Hexagon) par hai!
+    if crop_state == 0:
+        offset_x = hex_center_x - (fitted.size[0] // 2)    # RIGHT (Hexagon ke peeche)
+    elif crop_state == 1:
+        offset_x = canvas_center_x - (fitted.size[0] // 2) # CENTER
+    else:
+        offset_x = canvas_left_x - (fitted.size[0] // 2)   # LEFT
         
     offset_y = (base_template.size[1] - fitted.size[1]) // 2
 
-    # 4. Bina kate poster ko background par chipka diya
+    # 5. Bina kate poster ko background par chipka diya
     anime_artwork.paste(fitted, (offset_x, offset_y), fitted if fitted.mode == 'RGBA' else None)
 
-    # 5. Image ko enhance kiya
     anime_artwork = enhance_image(anime_artwork)
     
     final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
