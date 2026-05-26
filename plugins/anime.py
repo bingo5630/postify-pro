@@ -140,7 +140,7 @@ async def anime_cmd(client: Bot, message: Message):
         'query': query,
         'results': [],
         'selected_anime': None,
-        'crop_state': 0,  # 0=Center, 1=Left, 2=Right
+        'crop_state': 0,  # 0=Right(Hexagon), 1=Center, 2=Left
         'images': [],
         'current_image_idx': 0,
         'audio': None,
@@ -328,7 +328,6 @@ async def build_final_poster(client, callback_query, user_id):
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
-    
     if synopsis and len(synopsis) > 300:
         synopsis = synopsis[:297] + "..."
 
@@ -400,7 +399,6 @@ async def build_final_poster(client, callback_query, user_id):
     caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
     return poster_buf, caption
 
-
 # ==========================================
 # 5 BUTTON LAYOUT (All BOLD)
 # ==========================================
@@ -412,7 +410,6 @@ def get_final_keyboard():
          InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done")],
         [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
     ])
-
 
 @Bot.on_callback_query(filters.regex(r"^anime_audio_(.*)"), group=-1)
 async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
@@ -449,9 +446,8 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     raise StopPropagation
 
-
 # ==========================================
-# MOVE BUTTON: Bina zoom ke Left, Center, Right pan karega
+# MOVE BUTTON: Bina zoom ke shift karega!
 # ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
 async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
@@ -460,11 +456,11 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    # Cycle Crop State (0=Center, 1=Left, 2=Right)
+    # Cycle (0=Right/Hexagon, 1=Center, 2=Left)
     user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
     
-    states = ["Center", "Shift Left", "Shift Right"]
-    await callback_query.answer(f"Pan: {states[user_data[user_id]['crop_state']]}", show_alert=False)
+    states = ["Right (Hexagon Focus)", "Center", "Left"]
+    await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
@@ -476,9 +472,6 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
-# ==========================================
-# NEXT IMAGE BUTTON (Changes Image ONLY)
-# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -500,9 +493,6 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
-# ==========================================
-# BACK BUTTON (Goes to Previous Image)
-# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_back$"), group=-1)
 async def handle_anime_final_back(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
