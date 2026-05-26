@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import asyncio
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageChops
 import textwrap
 import io
 
@@ -14,9 +14,6 @@ HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
 FONT_TITLE = os.path.join(FONTS_DIR, "Montserrat-Black.ttf")
 FONT_BODY = os.path.join(FONTS_DIR, "Roboto-Medium.ttf")
 
-# ==========================================
-# SMART LOGO CLEANER (Removes Black BG for B&W Logos)
-# ==========================================
 def clean_logo(img):
     img = img.convert("RGBA")
     if img.getextrema()[3][0] < 255:
@@ -78,32 +75,34 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
 
     try:
-        fetched_mask = Image.open(HEX_MASK_PATH).convert('RGBA')
+        fetched_mask = Image.open(HEX_MASK_PATH).convert('L')
     except:
-        fetched_mask = Image.new('RGBA', base_template.size, (0, 0, 0, 0))
-        
+        fetched_mask = Image.new('L', base_template.size, 0)
+
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
     # ==========================================
-    # ARTIFACT KILLER: ALPHA CLAMPING + COMPOSITE CANVAS
+    # TUMHARA MASTER IDEA: INVERSE MASKING (THE HOLE PUNCH)
     # ==========================================
     
-    # 1. Mask ko strict Black & White mein convert karna
-    strict_l_mask = fetched_mask.convert('L')
-    binary_mask_full = strict_l_mask.point(lambda p: 255 if p > 128 else 0)
-
-    # 2. Anime Artwork ko crop karna
-    crop_artwork_full = crop_image(anime_img, base_template.size, crop_state)
-
-    # 3. Ek blank transparent canvas banana
-    clean_cutout_layer = Image.new('RGBA', base_template.size, (0, 0, 0, 0))
-
-    # 4. Artwork ko sharp mask ke sath transparent canvas par paste karna (White line yaheen khatam ho jayegi)
-    clean_cutout_layer.paste(crop_artwork_full, (0, 0), binary_mask_full)
-
-    # 5. Us clean cutout ko final template par paste karna
-    final_img = base_template.copy()
-    final_img.paste(clean_cutout_layer, (0, 0), clean_cutout_layer)
+    # 1. Mask ko ekdam strict Black & White banaya
+    strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
+    
+    # 2. Mask ko Invert kiya (Jahan Hexagon tha wahan Black, baaki jagah White)
+    inverse_mask = ImageOps.invert(strict_mask)
+    
+    # 3. Base Template mein Hexagon ke aakar ka transparent chhed (hole) bana diya
+    r, g, b, a = base_template.split()
+    punched_alpha = ImageChops.darker(a, inverse_mask) 
+    base_template.putalpha(punched_alpha)
+    
+    # 4. Anime Poster ko frame ke hisaab se crop kiya
+    anime_artwork = crop_image(anime_img, base_template.size, crop_state)
+    
+    # 5. ASLI JADU: Anime ko peeche rakha aur Chhed wale Template ko uske UPAR chipka diya!
+    final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255)) # Black background base
+    final_img.paste(anime_artwork, (0, 0)) # Anime background mein
+    final_img.paste(base_template, (0, 0), base_template) # Frame aage se laga diya!
 
     draw = ImageDraw.Draw(final_img)
 
@@ -118,7 +117,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
                             logo_img = Image.open(io.BytesIO(logo_data)).convert('RGBA')
             elif os.path.exists(logo_url):
                 logo_img = Image.open(logo_url).convert('RGBA')
-        except Exception: 
+        except Exception:
             pass
 
     genres_caps = genres.upper() if genres else ""
