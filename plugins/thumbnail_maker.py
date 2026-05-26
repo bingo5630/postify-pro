@@ -42,7 +42,8 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_url=None, color_hex="#FF6B00"):
+# Added template_path and color_hex dynamically
+async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_path=None, color_hex="#FF6B00"):
 
     if custom_image_path:
         anime_img = Image.open(custom_image_path).convert('RGBA')
@@ -57,17 +58,17 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     else:
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
-    # DYNAMIC TEMPLATE LOADER
+    # FIX: DYNAMIC TEMPLATE LOADER
     base_template = None
-    if template_url and template_url.startswith("http"):
+    if template_path and template_path.startswith("http"):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(template_url) as resp:
+                async with session.get(template_path) as resp:
                     if resp.status == 200:
                         template_data = await resp.read()
                         base_template = Image.open(io.BytesIO(template_data)).convert('RGBA')
         except Exception:
-            pass 
+            pass # Fallback below
             
     if not base_template:
         base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
@@ -79,7 +80,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
-    # White Border Killer
     strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
     expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
     inverse_mask = ImageOps.invert(expanded_mask)
@@ -88,39 +88,31 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
-    # 1. Background Blur (Premium look for empty spaces)
+    # FIX: 16:9 BLURRED BACKGROUND (No Zoom logic here, just fitting for blur area)
     blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
     blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
     blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
     anime_artwork = blurred_bg.convert('RGBA')
     
-    # 2. Hexagon Mask Bounding Box
     bbox = strict_mask.getbbox()
     if not bbox:
         bbox = (0, 0, 1920, 1080)
     
-    mask_w = bbox[2] - bbox[0]
-    mask_h = bbox[3] - bbox[1]
+    # FIX: NO ZOOM ON POSTER (Fitting height and aspect ratio lock)
+    poster_h = bbox[3] - bbox[1]
+    poster_w = int(anime_img.size[0] * (poster_h / anime_img.size[1]))
+    fitted = anime_img.resize((poster_w, poster_h), Image.Resampling.LANCZOS)
     
-    # ==========================================
-    # UNIVERSAL 5-WAY MOVE LOGIC (For ALL Colors)
-    # ==========================================
+    # MOVE Logic updated for X-axis centering/shifting
+    shift_amt = int(poster_w * 0.2)
     if crop_state == 1:
-        cx, cy = 0.5, 0.0 # Top Focus
+        offset_x = bbox[0] - shift_amt # Left shift
     elif crop_state == 2:
-        cx, cy = 0.5, 1.0 # Bottom Focus
-    elif crop_state == 3:
-        cx, cy = 0.0, 0.5 # Left Focus
-    elif crop_state == 4:
-        cx, cy = 1.0, 0.5 # Right Focus
+        offset_x = bbox[0] + shift_amt # Right shift
     else:
-        cx, cy = 0.5, 0.5 # Center Focus (Default)
-        
-    # Fit strictly to Hexagon Dimensions (No weird blurred side-bars)
-    fitted = ImageOps.fit(anime_img, (mask_w, mask_h), method=Image.Resampling.LANCZOS, centering=(cx, cy))
-    
-    # Paste exactly at Hexagon position
-    anime_artwork.paste(fitted, (bbox[0], bbox[1]))
+        offset_x = bbox[0] + ( (bbox[2] - bbox[0]) - poster_w ) // 2 # Center
+
+    anime_artwork.paste(fitted, (offset_x, bbox[1]), fitted if fitted.mode == 'RGBA' else None)
 
     anime_artwork = enhance_image(anime_artwork)
     
@@ -156,9 +148,9 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         font_genres = ImageFont.truetype(FONT_BODY, 35)
         font_synopsis = ImageFont.truetype(FONT_BODY, 30)
         font_brand = ImageFont.truetype(FONT_BODY, 40)
-        font_title_color = ImageFont.truetype(FONT_TITLE, 65)
+        font_title_orange = ImageFont.truetype(FONT_TITLE, 65)
     except:
-        font_title = font_genres = font_synopsis = font_brand = font_title_color = ImageFont.load_default()
+        font_title = font_genres = font_synopsis = font_brand = font_title_orange = ImageFont.load_default()
 
     wrapped_title = textwrap.fill(title.upper(), width=17) 
     title_lines = wrapped_title.split('\n')
@@ -171,12 +163,12 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
             draw.text((x_offset, y_dynamic_offset), line, font=font_title, fill="white")
             y_dynamic_offset += 100 
         else:
-            # Dynamic Text Color
-            draw.text((x_offset, y_dynamic_offset), line, font=font_title_color, fill=color_hex)
+            # FIX: Coloured subtitle for non-orange template
+            draw.text((x_offset, y_dynamic_offset), line, font=font_title_orange, fill=color_hex)
             y_dynamic_offset += 75 
 
     y_dynamic_offset += 20
-    # Dynamic Genres Color
+    # FIX: Coloured genres with double spaces formatting applied
     draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill=color_hex)
 
     synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) 
