@@ -1,6 +1,7 @@
 import os
 import aiohttp
 import asyncio
+import re
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageChops, ImageEnhance
 import textwrap
 import io
@@ -42,8 +43,8 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-# Added template_path and color_hex dynamically
-async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_path=None, color_hex="#FF6B00"):
+# Yahan par template_url aur color_hex parameters set kiye gaye hain
+async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_url=None, color_hex="#FF6B00"):
 
     if custom_image_path:
         anime_img = Image.open(custom_image_path).convert('RGBA')
@@ -58,17 +59,28 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     else:
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
-    # FIX: DYNAMIC TEMPLATE LOADER
+    # ==========================================
+    # SMART TEMPLATE LOADER (ImgBB Website Links Handle Karega)
+    # ==========================================
     base_template = None
-    if template_path and template_path.startswith("http"):
+    if template_url and template_url.startswith("http"):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(template_path) as resp:
+                # Agar user ne ImgBB ka webpage link de diya hai, toh image link extract karo
+                if "ibb.co" in template_url and not template_url.endswith(('.png', '.jpg', '.jpeg')):
+                    async with session.get(template_url) as html_resp:
+                        if html_resp.status == 200:
+                            html = await html_resp.text()
+                            match = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+                            if match:
+                                template_url = match.group(1)
+                
+                async with session.get(template_url) as resp:
                     if resp.status == 200:
                         template_data = await resp.read()
                         base_template = Image.open(io.BytesIO(template_data)).convert('RGBA')
         except Exception:
-            pass # Fallback below
+            pass
             
     if not base_template:
         base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
@@ -88,31 +100,38 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
-    # FIX: 16:9 BLURRED BACKGROUND (No Zoom logic here, just fitting for blur area)
+    # 1. 1920x1080 ka heavily blurred background
     blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
     blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
     blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
     anime_artwork = blurred_bg.convert('RGBA')
     
+    # 2. Hexagon mask ka Bounding Box nikalo
     bbox = strict_mask.getbbox()
     if not bbox:
         bbox = (0, 0, 1920, 1080)
+        
+    mask_h = bbox[3] - bbox[1]
+    mask_w = bbox[2] - bbox[0]
     
-    # FIX: NO ZOOM ON POSTER (Fitting height and aspect ratio lock)
-    poster_h = bbox[3] - bbox[1]
-    poster_w = int(anime_img.size[0] * (poster_h / anime_img.size[1]))
+    # 3. Poster ko hexagon ki height ke barabar resize karo (bina zoom kiye)
+    poster_h = mask_h
+    poster_w = int(anime_img.width * (mask_h / anime_img.height))
     fitted = anime_img.resize((poster_w, poster_h), Image.Resampling.LANCZOS)
     
-    # MOVE Logic updated for X-axis centering/shifting
-    shift_amt = int(poster_w * 0.2)
+    # 4. MOVE logic (0=Center, 1=Left, 2=Right)
+    mask_center_x = bbox[0] + (mask_w // 2)
+    
     if crop_state == 1:
-        offset_x = bbox[0] - shift_amt # Left shift
+        offset_x = bbox[0] # Left side of mask
     elif crop_state == 2:
-        offset_x = bbox[0] + shift_amt # Right shift
+        offset_x = bbox[2] - poster_w # Right side of mask
     else:
-        offset_x = bbox[0] + ( (bbox[2] - bbox[0]) - poster_w ) // 2 # Center
+        offset_x = mask_center_x - (poster_w // 2) # Exact Center of mask
+        
+    offset_y = bbox[1]
 
-    anime_artwork.paste(fitted, (offset_x, bbox[1]), fitted if fitted.mode == 'RGBA' else None)
+    anime_artwork.paste(fitted, (offset_x, offset_y), fitted if fitted.mode == 'RGBA' else None)
 
     anime_artwork = enhance_image(anime_artwork)
     
@@ -148,9 +167,9 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         font_genres = ImageFont.truetype(FONT_BODY, 35)
         font_synopsis = ImageFont.truetype(FONT_BODY, 30)
         font_brand = ImageFont.truetype(FONT_BODY, 40)
-        font_title_orange = ImageFont.truetype(FONT_TITLE, 65)
+        font_title_color = ImageFont.truetype(FONT_TITLE, 65)
     except:
-        font_title = font_genres = font_synopsis = font_brand = font_title_orange = ImageFont.load_default()
+        font_title = font_genres = font_synopsis = font_brand = font_title_color = ImageFont.load_default()
 
     wrapped_title = textwrap.fill(title.upper(), width=17) 
     title_lines = wrapped_title.split('\n')
@@ -163,12 +182,10 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
             draw.text((x_offset, y_dynamic_offset), line, font=font_title, fill="white")
             y_dynamic_offset += 100 
         else:
-            # FIX: Coloured subtitle for non-orange template
-            draw.text((x_offset, y_dynamic_offset), line, font=font_title_orange, fill=color_hex)
+            draw.text((x_offset, y_dynamic_offset), line, font=font_title_color, fill=color_hex)
             y_dynamic_offset += 75 
 
     y_dynamic_offset += 20
-    # FIX: Coloured genres with double spaces formatting applied
     draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill=color_hex)
 
     synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) 
