@@ -18,7 +18,6 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
 # ==========================================
 # 11 COLOUR TEMPLATES & HEX CODES
-# (Tumhare EXACT links yahan par hain)
 # ==========================================
 COLORS = [
     {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
@@ -158,8 +157,8 @@ async def anime_cmd(client: Bot, message: Message):
         'query': query,
         'results': [],
         'selected_anime': None,
-        'crop_state': 0, # 0=Center, 1=Left, 2=Right
-        'color_state': 0, # Template Color tracking
+        'crop_state': 0,
+        'color_state': 0,
         'images': [],
         'current_image_idx': 0,
         'audio': None,
@@ -349,7 +348,6 @@ async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
     
-    # Genres separated by double spaces
     genres = "  ".join(anime.get('genres', [])[:3])
     
     synopsis = anime.get('description', '')
@@ -388,6 +386,7 @@ async def build_final_poster(client, callback_query, user_id):
     fallback_name = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
     final_username = custom_text if custom_text else fallback_name
 
+    # Passed correctly here to thumbnail_maker.py
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
         custom_image_path=custom_image_path,
@@ -430,18 +429,16 @@ async def build_final_poster(client, callback_query, user_id):
 
     return poster_buf, caption
 
-# ==========================================
-# 5 BUTTON LAYOUT
-# ==========================================
 def get_final_keyboard(color_state):
     color_name = COLORS[color_state]['name']
     
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗠𝗢𝗩𝗘", callback_data="anime_final_move"),
          InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
-        [InlineKeyboardButton(f"🎨 {color_name}", callback_data="anime_final_color"),
-         InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done")],
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
+        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_final_back"),
+         InlineKeyboardButton(f"🎨 {color_name}", callback_data="anime_final_color")],
+        [InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done"),
+         InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
     ])
 
 @Bot.on_callback_query(filters.regex(r"^anime_audio_(.*)"), group=-1)
@@ -467,7 +464,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             await callback_query.message.delete()
         except: pass
         
-        # 1. Poster Send (No Buttons)
         photo_msg = await client.send_photo(
             chat_id=user_id,
             photo=poster_buf,
@@ -477,7 +473,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         
         user_data[user_id]['photo_msg_id'] = photo_msg.id
         
-        # 2. Controls Menu Send
         await client.send_message(
             chat_id=user_id,
             text=f"⚙️ **{apply_small_caps('POSTER CONTROLS:')}**\nUse buttons below to modify your poster:",
@@ -489,9 +484,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     raise StopPropagation
 
-# ==========================================
-# MOVE BUTTON
-# ==========================================
+
 @Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
 async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -513,9 +506,6 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
-# ==========================================
-# NEXT IMAGE BUTTON
-# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -536,9 +526,26 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
-# ==========================================
-# COLOUR CHANGE BUTTON
-# ==========================================
+@Bot.on_callback_query(filters.regex("^anime_final_back$"), group=-1)
+async def handle_anime_final_back(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        return await callback_query.answer("Session expired.", show_alert=True)
+
+    user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] - 1) % max(1, len(user_data[user_id]['images']))
+    await callback_query.answer("Loading previous image...", show_alert=False)
+
+    try:
+        poster_buf, caption = await build_final_poster(client, callback_query, user_id)
+        await client.edit_message_media(
+            chat_id=user_id,
+            message_id=user_data[user_id]['photo_msg_id'],
+            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML)
+        )
+    except Exception:
+        pass
+    raise StopPropagation
+
 @Bot.on_callback_query(filters.regex("^anime_final_color$"), group=-1)
 async def handle_anime_final_color(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -566,9 +573,6 @@ async def handle_anime_final_color(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
-# ==========================================
-# DONE BUTTON
-# ==========================================
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -577,4 +581,4 @@ async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     
     if user_id in user_data:
         del user_data[user_id]
-    raise StopPropagation
+    raise StopPropagatio
