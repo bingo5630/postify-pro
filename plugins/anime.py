@@ -140,6 +140,7 @@ async def anime_cmd(client: Bot, message: Message):
         'query': query,
         'results': [],
         'selected_anime': None,
+        'crop_state': 0,
         'images': [],
         'current_image_idx': 0,
         'audio': None,
@@ -328,7 +329,7 @@ async def build_final_poster(client, callback_query, user_id):
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
     
-    # TELEGRAM CRASH SAFETY NET (Limit for Caption)
+    # 1024 Character Telegram Crash Safety net
     if synopsis and len(synopsis) > 300:
         synopsis = synopsis[:297] + "..."
 
@@ -336,6 +337,7 @@ async def build_final_poster(client, callback_query, user_id):
     img_idx = user_data[user_id]['current_image_idx']
     image_url = images[img_idx] if images else "https://via.placeholder.com/1920x1080"
     custom_image_path = user_data[user_id].get('custom_image')
+    crop_state = user_data[user_id]['crop_state']
     audio = user_data[user_id].get('audio', 'N/A')
 
     try:
@@ -366,6 +368,7 @@ async def build_final_poster(client, callback_query, user_id):
         synopsis=synopsis,
         username=final_username,
         logo_url=custom_logo,    
+        crop_state=crop_state,
         small_caps=False  
     )
 
@@ -440,6 +443,9 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     raise StopPropagation
 
+# ==========================================
+# TUMHARA 2-STEP CYCLE LOGIC (Next Image Button)
+# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -447,10 +453,15 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    # FIX: Seedha 1 click mein Image Cycle (No Crop State waiting)
-    user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
+    # Cycle Crop State: 0 (Normal Fit) -> 1 (Tumhara Blurred Background Center Fit)
+    user_data[user_id]['crop_state'] += 1
+    if user_data[user_id]['crop_state'] > 1:
+        # Jab dono state dikh jaayein, toh state ko reset karke Agli Image par jaao!
+        user_data[user_id]['crop_state'] = 0
+        user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
 
-    await callback_query.answer("Loading next image...", show_alert=False)
+    style_msg = "Manual Center Style" if user_data[user_id]['crop_state'] == 1 else "Normal Fit"
+    await callback_query.answer(f"Loading... ({style_msg})", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
