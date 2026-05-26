@@ -20,7 +20,7 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 # 11 COLOUR TEMPLATES & HEX CODES
 # ==========================================
 COLORS = [
-    {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"}, # Default Local
+    {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
     {"name": "GREEN", "hex": "#28a745", "url": "https://i.ibb.co/G4GhnCsZ/green.png"},
     {"name": "NAVY GREEN", "hex": "#4A5D23", "url": "https://i.ibb.co/1fVPgwqd/navy-green.png"},
     {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://i.ibb.co/yTznRcZ/dark-yellow.png"},
@@ -158,12 +158,12 @@ async def anime_cmd(client: Bot, message: Message):
         'results': [],
         'selected_anime': None,
         'crop_state': 0,
-        'color_state': 0, # NEW: Color Template Tracker
+        'color_state': 0,
         'images': [],
         'current_image_idx': 0,
         'audio': None,
         'custom_image': None,
-        'photo_msg_id': None, # NEW: Real Poster Message ID Tracker
+        'photo_msg_id': None,
         'timestamp': time.time()
     }
 
@@ -348,7 +348,7 @@ async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
     
-    # FIX: NO COMMAS IN GENRES, JUST DOUBLE SPACES
+    # Genres separated by double spaces
     genres = "  ".join(anime.get('genres', [])[:3])
     
     synopsis = anime.get('description', '')
@@ -463,7 +463,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             await callback_query.message.delete()
         except: pass
         
-        # FIX: SEND POSTER SEPARATELY FOR CLEAN SHARING
+        # Send Photo
         photo_msg = await client.send_photo(
             chat_id=user_id,
             photo=poster_buf,
@@ -473,7 +473,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         
         user_data[user_id]['photo_msg_id'] = photo_msg.id
         
-        # SEND BUTTONS SEPARATELY
+        # Send Controls Separately
         await client.send_message(
             chat_id=user_id,
             text=f"⚙️ **{apply_small_caps('POSTER CONTROLS:')}**\nUse buttons below to modify your poster:",
@@ -485,15 +485,19 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     raise StopPropagation
 
-
+# ==========================================
+# 5-WAY UNIVERSAL MOVE LOGIC (Center, Top, Bottom, Left, Right)
+# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
 async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
 
-    user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
-    states = ["Right Focus", "Center Focus", "Left Focus"]
+    # 0=Center, 1=Top, 2=Bottom, 3=Left, 4=Right
+    user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 5
+    states = ["Center Focus", "Top Focus", "Bottom Focus", "Left Focus", "Right Focus"]
+    
     await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
 
     try:
