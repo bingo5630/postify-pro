@@ -35,17 +35,6 @@ def enhance_image(img):
     img = ImageEnhance.Color(img).enhance(1.2)
     return img.convert("RGBA")
 
-# ==========================================
-# FIX: RESIZE AND FIT (NO CROP)
-# Image ko zabardasti hexagon ke shape mein compress (shrink) karega.
-# Koi face nahi katega, bas image thodi choti ho jayegi aur fit ho jayegi.
-# ==========================================
-def fit_image(img, target_size):
-    # ImageOps.pad resizes the image to fit within target_size without losing aspect ratio.
-    # It adds black padding if necessary.
-    fitted_img = ImageOps.pad(img, target_size, method=Image.Resampling.LANCZOS, color=(0, 0, 0, 255))
-    return fitted_img
-
 def apply_small_caps(text):
     if not text: return text
     normal = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -53,8 +42,8 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-# Crop_state hata diya gaya hai argument se
-async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, small_caps=False):
+# Ab crop_state wapas aagaya hai 2 styles handle karne ke liye
+async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False):
 
     if custom_image_path:
         anime_img = Image.open(custom_image_path).convert('RGBA')
@@ -78,6 +67,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
+    # White Border Killer (Hole punch technique)
     strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
     expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
     inverse_mask = ImageOps.invert(expanded_mask)
@@ -86,8 +76,24 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
-    # FIX: Image ab fit_image method se shrink hokar frame mein ghusegi!
-    anime_artwork = fit_image(anime_img, base_template.size)
+    # ==========================================
+    # TUMHARA 2-STEP LOGIC YAHAN HAI:
+    # ==========================================
+    if crop_state == 0:
+        # STYLE 1: Full Fit (Pehle wala - Screen bhar dega, par face kat sakta hai vertical hone par)
+        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    else:
+        # STYLE 2: TUMHARA MANUAL IDEA (Center Fit with Background)
+        # 1. Background ko blur kar diya (Black se better look ke liye)
+        blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(25))
+        anime_artwork = blurred_bg.convert('RGBA')
+        
+        # 2. Original image ko chhota (shrink) karke beech mein chipka diya (Koi face nahi katega)
+        fitted = ImageOps.contain(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+        offset_x = (base_template.size[0] - fitted.size[0]) // 2
+        offset_y = (base_template.size[1] - fitted.size[1]) // 2
+        anime_artwork.paste(fitted, (offset_x, offset_y), fitted if fitted.mode == 'RGBA' else None)
+
     anime_artwork = enhance_image(anime_artwork)
     
     final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
