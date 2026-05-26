@@ -140,7 +140,7 @@ async def anime_cmd(client: Bot, message: Message):
         'query': query,
         'results': [],
         'selected_anime': None,
-        'crop_state': 0,  # 0=Right(Hexagon), 1=Center, 2=Left
+        'crop_state': 0,
         'images': [],
         'current_image_idx': 0,
         'audio': None,
@@ -328,6 +328,8 @@ async def build_final_poster(client, callback_query, user_id):
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
+    
+    # 1024 Character Telegram Crash Safety net
     if synopsis and len(synopsis) > 300:
         synopsis = synopsis[:297] + "..."
 
@@ -447,7 +449,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 # ==========================================
-# MOVE BUTTON: Bina zoom ke shift karega!
+# MOVE BUTTON: Shifts Focus UP, CENTER, DOWN!
 # ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
 async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
@@ -456,10 +458,10 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    # Cycle (0=Right/Hexagon, 1=Center, 2=Left)
+    # Cycle Crop State (0=Center, 1=Top, 2=Bottom)
     user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
     
-    states = ["Right (Hexagon Focus)", "Center", "Left"]
+    states = ["Center Focus", "Top Focus (Face)", "Bottom Focus"]
     await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
 
     try:
