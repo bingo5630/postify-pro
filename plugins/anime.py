@@ -14,13 +14,11 @@ from plugins.utils import apply_small_caps
 
 user_data = {}
 
-# Yahan apni Fanart.tv ki API Key
 FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
 async def fetch_extra_images(title_eng, title_rom, mal_id=None):
     extra_images = []
     
-    # 1. Jikan (MAL) High-Res Pictures
     if mal_id:
         try:
             async with aiohttp.ClientSession() as session:
@@ -34,15 +32,14 @@ async def fetch_extra_images(title_eng, title_rom, mal_id=None):
         except Exception:
             pass
 
-    # 2. Fanart.tv Integration (Aggressive Smart Search)
     if FANART_API_KEY:
         search_titles = []
         for t in [title_eng, title_rom]:
             if not t: continue
             search_titles.append(t) 
             if ':' in t:
-                search_titles.append(t.split(':')[0].strip()) # Before colon
-            search_titles.append(t.split()[0].strip()) # Just the first word fallback
+                search_titles.append(t.split(':')[0].strip()) 
+            search_titles.append(t.split()[0].strip()) 
                 
         search_titles = list(dict.fromkeys(search_titles))
         
@@ -143,7 +140,6 @@ async def anime_cmd(client: Bot, message: Message):
         'query': query,
         'results': [],
         'selected_anime': None,
-        'crop_state': 0,
         'images': [],
         'current_image_idx': 0,
         'audio': None,
@@ -247,16 +243,13 @@ async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
     title_eng = selected_anime['title'].get('english', '')
     title_rom = selected_anime['title'].get('romaji', '')
     
-    # Base images
     images = []
     if selected_anime.get('bannerImage'): images.append(selected_anime['bannerImage'])
     if selected_anime.get('coverImage', {}).get('extraLarge'): images.append(selected_anime['coverImage']['extraLarge'])
     
-    # Fetch Extra from Jikan/Fanart using Smart Titles
     extra = await fetch_extra_images(title_eng, title_rom, mal_id=selected_anime.get('mal_id'))
     images.extend(extra)
     
-    # Remove duplicates but keep order
     images = list(dict.fromkeys(images))
     user_data[user_id]['images'] = images
 
@@ -334,6 +327,8 @@ async def build_final_poster(client, callback_query, user_id):
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
+    
+    # TELEGRAM CRASH SAFETY NET (Limit for Caption)
     if synopsis and len(synopsis) > 300:
         synopsis = synopsis[:297] + "..."
 
@@ -341,7 +336,6 @@ async def build_final_poster(client, callback_query, user_id):
     img_idx = user_data[user_id]['current_image_idx']
     image_url = images[img_idx] if images else "https://via.placeholder.com/1920x1080"
     custom_image_path = user_data[user_id].get('custom_image')
-    crop_state = user_data[user_id]['crop_state']
     audio = user_data[user_id].get('audio', 'N/A')
 
     try:
@@ -372,7 +366,6 @@ async def build_final_poster(client, callback_query, user_id):
         synopsis=synopsis,
         username=final_username,
         logo_url=custom_logo,    
-        crop_state=crop_state,
         small_caps=False  
     )
 
@@ -447,10 +440,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     raise StopPropagation
 
-# ==========================================
-# FIX: THE "NEXT IMAGE" BUTTON BUG
-# Directly jump to the next image instead of waiting 3 clicks!
-# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -458,9 +447,8 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    # FIX: Seedha agli image par jump karo aur crop ko center (0) kar do
+    # FIX: Seedha 1 click mein Image Cycle (No Crop State waiting)
     user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
-    user_data[user_id]['crop_state'] = 0 
 
     await callback_query.answer("Loading next image...", show_alert=False)
 
