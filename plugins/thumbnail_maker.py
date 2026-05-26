@@ -66,7 +66,6 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
-    # White Border Killer (Hole punch technique)
     strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
     expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
     inverse_mask = ImageOps.invert(expanded_mask)
@@ -76,21 +75,22 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     base_template.putalpha(punched_alpha)
     
     # ==========================================
-    # TUMHARA 2-STEP LOGIC YAHAN HAI:
+    # 4 STYLES LOGIC (Move Button Controls This)
+    # 0 = Center, 1 = Left, 2 = Right, 3 = 16:9 Blur Background
     # ==========================================
     if crop_state == 0:
-        # STYLE 1: Full Fit (Screen bhar dega, par face kat sakta hai vertical hone par)
         anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    elif crop_state == 1:
+        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(0.0, 0.5))
+    elif crop_state == 2:
+        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(1.0, 0.5))
     else:
-        # STYLE 2: TUMHARA MANUAL IDEA (16:9 Center Fit with Background)
-        
-        # 1. 1920x1080 ka background banaya aur heavily blur kar diya
+        # Style 3: Tumhara 16:9 Manual Idea
         blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
-        blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35)) # Heavy blur for premium look
-        blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.6) # Thoda dark kiya taaki main image pop ho
+        blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
+        blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.6)
         anime_artwork = blurred_bg.convert('RGBA')
         
-        # 2. Original image ko chhota karke 16:9 canvas ke theek beech mein chipka diya
         fitted = ImageOps.contain(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
         offset_x = (base_template.size[0] - fitted.size[0]) // 2
         offset_y = (base_template.size[1] - fitted.size[1]) // 2
