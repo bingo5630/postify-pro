@@ -399,17 +399,19 @@ async def build_final_poster(client, callback_query, user_id):
     caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
     return poster_buf, caption
 
-def get_final_keyboard(crop_state):
-    # ==========================================
-    # DYNAMIC BUTTON FIX: User ko pata chalega kab Style badlega aur kab Image!
-    # ==========================================
-    next_btn_text = "𝗡𝗘𝗫𝗧 𝗦𝗧𝗬𝗟𝗘" if crop_state == 0 else "𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘"
-    
+
+# ==========================================
+# 5 BUTTON LAYOUT (All BOLD)
+# ==========================================
+def get_final_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("𝗦𝗞𝗜𝗣", callback_data="final_done"),
-         InlineKeyboardButton(next_btn_text, callback_data="anime_final_next")],
-        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
+        [InlineKeyboardButton("𝗠𝗢𝗩𝗘", callback_data="anime_final_move"),
+         InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
+        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_final_back"),
+         InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done")],
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
     ])
+
 
 @Bot.on_callback_query(filters.regex(r"^anime_audio_(.*)"), group=-1)
 async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
@@ -439,13 +441,42 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             photo=poster_buf,
             caption=caption,
             parse_mode=ParseMode.HTML,
-            reply_markup=get_final_keyboard(user_data[user_id]['crop_state'])
+            reply_markup=get_final_keyboard()
         )
     except Exception as e:
         await client.send_message(chat_id=user_id, text=f"Generation failed: {e}")
 
     raise StopPropagation
 
+# ==========================================
+# NEW LOGIC: MOVE BUTTON (Changes Style ONLY)
+# ==========================================
+@Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
+async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        await callback_query.answer("Session expired.", show_alert=True)
+        raise StopPropagation
+
+    # Move dabane par Crop State change hoga (0=Center, 1=Left, 2=Right, 3=16:9 Blur Background)
+    user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 4
+    
+    style_names = ["Center Crop", "Left Crop", "Right Crop", "16:9 Background Fit"]
+    await callback_query.answer(f"Style: {style_names[user_data[user_id]['crop_state']]}", show_alert=False)
+
+    try:
+        poster_buf, caption = await build_final_poster(client, callback_query, user_id)
+        await callback_query.edit_message_media(
+            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
+            reply_markup=get_final_keyboard()
+        )
+    except Exception:
+        pass
+    raise StopPropagation
+
+# ==========================================
+# NEW LOGIC: NEXT IMAGE BUTTON (Changes Image ONLY)
+# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -453,23 +484,40 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    # ==========================================
-    # 2-STEP CYCLE LOGIC
-    # ==========================================
-    user_data[user_id]['crop_state'] += 1
-    if user_data[user_id]['crop_state'] > 1:
-        # Style 1 aur 2 dono ho gaye? Ab Agli photo par jao aur Style reset kardo.
-        user_data[user_id]['crop_state'] = 0
-        user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
+    # Next Image dabane par seedha Image change hogi, style wahi rahega jo tumne chuna tha!
+    user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
 
-    style_msg = "Manual Center Fit" if user_data[user_id]['crop_state'] == 1 else "Normal Full Fit"
-    await callback_query.answer(f"Loading {style_msg}...", show_alert=False)
+    await callback_query.answer("Loading next image...", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
         await callback_query.edit_message_media(
             media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
-            reply_markup=get_final_keyboard(user_data[user_id]['crop_state'])
+            reply_markup=get_final_keyboard()
+        )
+    except Exception:
+        pass
+    raise StopPropagation
+
+# ==========================================
+# NEW LOGIC: BACK BUTTON (Goes to Previous Image)
+# ==========================================
+@Bot.on_callback_query(filters.regex("^anime_final_back$"), group=-1)
+async def handle_anime_final_back(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        await callback_query.answer("Session expired.", show_alert=True)
+        raise StopPropagation
+
+    user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] - 1) % max(1, len(user_data[user_id]['images']))
+
+    await callback_query.answer("Loading previous image...", show_alert=False)
+
+    try:
+        poster_buf, caption = await build_final_poster(client, callback_query, user_id)
+        await callback_query.edit_message_media(
+            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
+            reply_markup=get_final_keyboard()
         )
     except Exception:
         pass
@@ -478,7 +526,7 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-    await callback_query.answer("Done!")
+    await callback_query.answer("Poster Done!")
     await callback_query.edit_message_reply_markup(reply_markup=None)
     
     if user_id in user_data:
