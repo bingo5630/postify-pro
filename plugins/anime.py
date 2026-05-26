@@ -14,7 +14,7 @@ from plugins.utils import apply_small_caps
 
 user_data = {}
 
-# Fanart API Key pehle se set kar di hai!
+# Yahan apni Fanart.tv ki API Key
 FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
 async def fetch_extra_images(title_eng, title_rom, mal_id=None):
@@ -34,18 +34,16 @@ async def fetch_extra_images(title_eng, title_rom, mal_id=None):
         except Exception:
             pass
 
-    # 2. Fanart.tv Integration (SMART TITLE CLEANER)
+    # 2. Fanart.tv Integration (Aggressive Smart Search)
     if FANART_API_KEY:
-        # Alag-alag naam try karenge taaki API fail na ho
         search_titles = []
         for t in [title_eng, title_rom]:
             if not t: continue
-            search_titles.append(t) # Original
-            search_titles.append(re.sub(r'[^a-zA-Z0-9\s]', ' ', t).strip()) # Without symbols
+            search_titles.append(t) 
             if ':' in t:
-                search_titles.append(t.split(':')[0].strip()) # Only base name (e.g. Wistoria)
+                search_titles.append(t.split(':')[0].strip()) # Before colon
+            search_titles.append(t.split()[0].strip()) # Just the first word fallback
                 
-        # Remove duplicates
         search_titles = list(dict.fromkeys(search_titles))
         
         try:
@@ -60,14 +58,13 @@ async def fetch_extra_images(title_eng, title_rom, mal_id=None):
                             if data and isinstance(data, list) and len(data) > 0:
                                 tv_id = data[0].get('tvdb_id')
                                 if tv_id:
-                                    break # ID mil gaya, search loop band karo!
+                                    break 
                 
                 if tv_id:
                     img_url = f"https://webservice.fanart.tv/v3/tv/{tv_id}?api_key={FANART_API_KEY}"
                     async with session.get(img_url) as img_resp:
                         if img_resp.status == 200:
                             img_data = await img_resp.json()
-                            # Sab categories ke high quality images utha lo
                             for key in ['tvposter', 'showbackground', 'characterart', 'hdclearart']:
                                 for item in img_data.get(key, []):
                                     extra_images.append(item['url'])
@@ -226,11 +223,6 @@ async def close_anime_menu(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 
-# ==========================================
-# STAGE 1: INITIAL PREVIEW KEYBOARD
-# Left: Custom Img | Right: Skip
-# Bottom: Cancel
-# ==========================================
 def get_initial_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Custom Img"), callback_data="anime_thumb_custom"),
@@ -334,9 +326,6 @@ async def handle_anime_audio_custom(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 
-# ==========================================
-# POSTER GENERATION LOGIC
-# ==========================================
 async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
@@ -416,18 +405,12 @@ async def build_final_poster(client, callback_query, user_id):
     caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
     return poster_buf, caption
 
-# ==========================================
-# STAGE 3: THE FINAL BOLD BUTTONS
-# Left: [ 𝗦𝗞𝗜𝗣 ] | Right: [ 𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘 ]
-# Bottom: Cancel
-# ==========================================
 def get_final_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗦𝗞𝗜𝗣", callback_data="final_done"),
          InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
         [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
-
 
 @Bot.on_callback_query(filters.regex(r"^anime_audio_(.*)"), group=-1)
 async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
@@ -464,7 +447,10 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     raise StopPropagation
 
-
+# ==========================================
+# FIX: THE "NEXT IMAGE" BUTTON BUG
+# Directly jump to the next image instead of waiting 3 clicks!
+# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -472,12 +458,11 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    user_data[user_id]['crop_state'] += 1
-    if user_data[user_id]['crop_state'] > 2:
-        user_data[user_id]['crop_state'] = 0
-        user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
+    # FIX: Seedha agli image par jump karo aur crop ko center (0) kar do
+    user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
+    user_data[user_id]['crop_state'] = 0 
 
-    await callback_query.answer("Generating next image preview...", show_alert=False)
+    await callback_query.answer("Loading next image...", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
@@ -488,7 +473,6 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     except Exception:
         pass
     raise StopPropagation
-
 
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
