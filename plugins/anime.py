@@ -2,6 +2,7 @@ import re
 import time
 import asyncio
 import aiohttp
+import urllib.parse
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
 from pyrogram.enums import ParseMode
@@ -19,24 +20,26 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 async def fetch_extra_images(title, mal_id=None):
     extra_images = []
     
-    # 1. Jikan (MAL) High-Res Pictures (Works automatically without API Key)
+    # 1. Jikan (MAL) High-Res Pictures
     if mal_id:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"https://api.jikan.moe/v4/anime/{mal_id}/pictures") as resp:
-                    data = await resp.json()
-                    if 'data' in data:
-                        for pic in data['data']:
-                            if 'large_image_url' in pic['jpg']:
-                                extra_images.append(pic['jpg']['large_image_url'])
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if 'data' in data:
+                            for pic in data['data']:
+                                if 'large_image_url' in pic['jpg']:
+                                    extra_images.append(pic['jpg']['large_image_url'])
         except Exception:
             pass
 
-    # 2. Fanart.tv Integration (Requires API Key)
+    # 2. Fanart.tv Integration (FIXED URL ENCODING)
     if FANART_API_KEY:
         try:
             async with aiohttp.ClientSession() as session:
-                url = f"https://webservice.fanart.tv/v3/search/tv?api_key={FANART_API_KEY}&query={title}"
+                encoded_title = urllib.parse.quote(title)
+                url = f"https://webservice.fanart.tv/v3/search/tv?api_key={FANART_API_KEY}&query={encoded_title}"
                 async with session.get(url) as resp:
                     if resp.status == 200:
                         data = await resp.json()
@@ -67,6 +70,7 @@ async def fetch_anime_search(query, source="anilist"):
                     for item in data['data']:
                         results.append({
                             'id': item['mal_id'],
+                            'mal_id': item['mal_id'],
                             'title': {
                                 'romaji': item['title'],
                                 'english': item.get('title_english', item['title'])
@@ -85,6 +89,7 @@ async def fetch_anime_search(query, source="anilist"):
       Page (page: 1, perPage: 5) {
         media (search: $search, type: ANIME) {
           id
+          idMal
           title {
             romaji
             english
@@ -105,7 +110,11 @@ async def fetch_anime_search(query, source="anilist"):
         async with session.post(url, json={'query': query_graphql, 'variables': variables}) as resp:
             data = await resp.json()
             if 'data' in data and 'Page' in data['data'] and 'media' in data['data']['Page']:
-                return data['data']['Page']['media']
+                results = []
+                for item in data['data']['Page']['media']:
+                    item['mal_id'] = item.get('idMal') # Store MAL ID from Anilist
+                    results.append(item)
+                return results
     return []
 
 @Bot.on_message(filters.command("anime") & filters.private)
@@ -200,11 +209,6 @@ async def close_anime_menu(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 
-# ==========================================
-# STAGE 1: INITIAL PREVIEW KEYBOARD (NO NEXT IMAGE HERE)
-# Left: Custom Img | Right: Skip
-# Bottom: Cancel
-# ==========================================
 def get_initial_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Custom Img"), callback_data="anime_thumb_custom"),
@@ -233,8 +237,8 @@ async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
     if selected_anime.get('bannerImage'): images.append(selected_anime['bannerImage'])
     if selected_anime.get('coverImage', {}).get('extraLarge'): images.append(selected_anime['coverImage']['extraLarge'])
     
-    # Fetch Extra from Jikan/Fanart
-    extra = await fetch_extra_images(title, mal_id=selected_anime.get('id'))
+    # Fetch Extra from Jikan/Fanart using mal_id
+    extra = await fetch_extra_images(title, mal_id=selected_anime.get('mal_id'))
     images.extend(extra)
     
     # Remove duplicates but keep order
@@ -248,7 +252,6 @@ async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
         await callback_query.message.delete()
         await client.send_photo(chat_id=callback_query.message.chat.id, photo=img_url, caption=msg_text, reply_markup=get_initial_keyboard())
     except Exception as e:
-        # Fallback agar Telegram photo delete hone ke baad confuse ho
         await client.send_message(chat_id=callback_query.message.chat.id, text=f"{msg_text} \n\n (Preview failed: {e})", reply_markup=get_initial_keyboard())
     raise StopPropagation
 
@@ -308,9 +311,6 @@ async def handle_anime_audio_custom(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 
-# ==========================================
-# POSTER GENERATION LOGIC
-# ==========================================
 async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
@@ -319,8 +319,6 @@ async def build_final_poster(client, callback_query, user_id):
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
-    
-    # FIX: TRUNCATE SYNOPSIS TO AVOID TELEGRAM 1024 LIMIT CRASH!
     if synopsis and len(synopsis) > 300:
         synopsis = synopsis[:297] + "..."
 
@@ -389,16 +387,10 @@ async def build_final_poster(client, callback_query, user_id):
     except Exception:
         caption = f"<b>{v_title}</b>\n\n<b>Audio:</b> {v_audio}\n<b>Genres:</b> {v_genres}"
 
-    # SMALL CAPS MESSAGE APPENDED TO CAPTION
     caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
     return poster_buf, caption
 
 
-# ==========================================
-# STAGE 3: THE FINAL BOLD BUTTONS
-# Left: [ 𝗦𝗞𝗜𝗣 ] | Right: [ 𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘 ]
-# Bottom: Cancel
-# ==========================================
 def get_final_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗦𝗞𝗜𝗣", callback_data="final_done"),
@@ -426,12 +418,10 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
-        # Avoid the crash: check if we can delete the 'processing' message first
         try:
             await callback_query.message.delete()
         except: pass
         
-        # Send Final Poster with Bold Buttons
         await client.send_photo(
             chat_id=user_id,
             photo=poster_buf,
@@ -445,9 +435,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 
-# ==========================================
-# LIVE "NEXT IMAGE" CYCLING ON FINAL POSTER
-# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -455,7 +442,6 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    # Cycle Crop State and Image Index
     user_data[user_id]['crop_state'] += 1
     if user_data[user_id]['crop_state'] > 2:
         user_data[user_id]['crop_state'] = 0
@@ -465,7 +451,6 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
-        # Edit the existing final poster with the newly generated one
         await callback_query.edit_message_media(
             media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
             reply_markup=get_final_keyboard()
@@ -479,7 +464,6 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     await callback_query.answer("Done!")
-    # Remove buttons since process is complete
     await callback_query.edit_message_reply_markup(reply_markup=None)
     
     if user_id in user_data:
