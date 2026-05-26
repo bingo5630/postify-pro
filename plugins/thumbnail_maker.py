@@ -42,9 +42,10 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-# Added template_path and color_hex dynamically
-async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_path=None, color_hex="#FF6B00"):
+# Added template_url and color_hex for dynamic changes
+async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_url=None, color_hex="#FF6B00"):
 
+    # 1. Load Background Image
     if custom_image_path:
         anime_img = Image.open(custom_image_path).convert('RGBA')
     elif anime_img_url:
@@ -58,24 +59,22 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     else:
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
-    # ==========================================
-    # FIX: DYNAMIC TEMPLATE LOADER
-    # Agar internet ka direct link hai toh fetch karega warna default load karega
-    # ==========================================
+    # 2. DYNAMIC TEMPLATE LOADER (Online URL se ya local default se)
     base_template = None
-    if template_path and template_path.startswith("http"):
+    if template_url and template_url.startswith("http"):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(template_path) as resp:
+                async with session.get(template_url) as resp:
                     if resp.status == 200:
                         template_data = await resp.read()
                         base_template = Image.open(io.BytesIO(template_data)).convert('RGBA')
         except Exception:
-            pass # Fallback below
+            pass # Agar link tuta ho toh default load karega
             
     if not base_template:
         base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
 
+    # 3. MASK AND WHITE BORDER KILLER (Har template par apply hoga automatically!)
     try:
         fetched_mask = Image.open(HEX_MASK_PATH).convert('L')
     except:
@@ -91,36 +90,44 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
+    # 4. BACKGROUND BLUR & OFFSET LOGIC
     blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
     blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
     blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
     anime_artwork = blurred_bg.convert('RGBA')
     
+    fitted = ImageOps.contain(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+    
     bbox = strict_mask.getbbox()
-    if not bbox:
-        bbox = (0, 0, 1920, 1080)
-    
-    mask_w = bbox[2] - bbox[0]
-    mask_h = bbox[3] - bbox[1]
-    
-    if crop_state == 0:
-        center_y = 0.5  
-    elif crop_state == 1:
-        center_y = 0.1  
+    if bbox:
+        hex_center_x = (bbox[0] + bbox[2]) // 2
     else:
-        center_y = 0.9  
+        hex_center_x = int(base_template.size[0] * 0.75)
+        
+    canvas_center_x = base_template.size[0] // 2
+    canvas_left_x = int(base_template.size[0] * 0.25)
     
-    fitted = ImageOps.fit(anime_img, (mask_w, mask_h), method=Image.Resampling.LANCZOS, centering=(0.5, center_y))
-    anime_artwork.paste(fitted, (bbox[0], bbox[1]))
+    # 0=Right(Hexagon), 1=Center, 2=Left
+    if crop_state == 0:
+        offset_x = hex_center_x - (fitted.size[0] // 2)
+    elif crop_state == 1:
+        offset_x = canvas_center_x - (fitted.size[0] // 2)
+    else:
+        offset_x = canvas_left_x - (fitted.size[0] // 2)
+        
+    offset_y = (base_template.size[1] - fitted.size[1]) // 2
+    anime_artwork.paste(fitted, (offset_x, offset_y), fitted if fitted.mode == 'RGBA' else None)
 
     anime_artwork = enhance_image(anime_artwork)
     
+    # 5. COMPOSITION
     final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
     final_img.paste(anime_artwork, (0, 0)) 
     final_img.paste(base_template, (0, 0), base_template) 
 
     draw = ImageDraw.Draw(final_img)
 
+    # Logo Logic
     logo_img = None
     if logo_url:
         try:
@@ -162,14 +169,12 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
             draw.text((x_offset, y_dynamic_offset), line, font=font_title, fill="white")
             y_dynamic_offset += 100 
         else:
-            # ==========================================
-            # FIX: TEXT COLOR AB TEMPLATE KE HISAAB SE DYNAMIC HAI
-            # ==========================================
+            # FIX: SUBTITLE NOW MATCHES TEMPLATE COLOR
             draw.text((x_offset, y_dynamic_offset), line, font=font_title_color, fill=color_hex)
             y_dynamic_offset += 75 
 
     y_dynamic_offset += 20
-    # Genres ke liye bhi wahi dynamic colour
+    # FIX: GENRES NOW MATCH TEMPLATE COLOR
     draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill=color_hex)
 
     synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) 
