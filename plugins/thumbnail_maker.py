@@ -66,6 +66,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
     
+    # White Border Killer (Hole punch technique)
     strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
     expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
     inverse_mask = ImageOps.invert(expanded_mask)
@@ -75,27 +76,34 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     base_template.putalpha(punched_alpha)
     
     # ==========================================
-    # 4 STYLES LOGIC (Move Button Controls This)
-    # 0 = Center, 1 = Left, 2 = Right, 3 = 16:9 Blur Background
+    # TUMHARA MANUAL FIX: FULL POSTER ON 16:9 BLURRED BACKGROUND
     # ==========================================
+    
+    # 1. 1920x1080 ka background banaya aur heavily blur kar diya
+    blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+    blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
+    blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5) # Thoda dark kiya taaki poster chamke
+    anime_artwork = blurred_bg.convert('RGBA')
+    
+    # 2. Original image ko fit (contain) kiya taaki kuch bhi kate nahi (No Zoom)
+    fitted = ImageOps.contain(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+    
+    # 3. MOVE logic: Shift full poster Left, Center, or Right
+    max_x = base_template.size[0] - fitted.size[0]
+    
     if crop_state == 0:
-        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        offset_x = max_x // 2          # CENTER
     elif crop_state == 1:
-        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(0.0, 0.5))
-    elif crop_state == 2:
-        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS, centering=(1.0, 0.5))
+        offset_x = int(max_x * 0.25)   # LEFT (Thoda left khiskaya)
     else:
-        # Style 3: Tumhara 16:9 Manual Idea
-        blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
-        blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
-        blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.6)
-        anime_artwork = blurred_bg.convert('RGBA')
+        offset_x = int(max_x * 0.75)   # RIGHT (Thoda right khiskaya)
         
-        fitted = ImageOps.contain(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
-        offset_x = (base_template.size[0] - fitted.size[0]) // 2
-        offset_y = (base_template.size[1] - fitted.size[1]) // 2
-        anime_artwork.paste(fitted, (offset_x, offset_y), fitted if fitted.mode == 'RGBA' else None)
+    offset_y = (base_template.size[1] - fitted.size[1]) // 2
 
+    # 4. Bina kate poster ko background par chipka diya
+    anime_artwork.paste(fitted, (offset_x, offset_y), fitted if fitted.mode == 'RGBA' else None)
+
+    # 5. Image ko enhance kiya
     anime_artwork = enhance_image(anime_artwork)
     
     final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
