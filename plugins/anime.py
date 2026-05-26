@@ -14,7 +14,7 @@ from plugins.utils import apply_small_caps
 user_data = {}
 
 # Yahan apni Fanart.tv ki API Key daal dena
-FANART_API_KEY = ""
+FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
 async def fetch_extra_images(title, mal_id=None):
     extra_images = []
