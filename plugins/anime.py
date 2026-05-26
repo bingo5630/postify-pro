@@ -248,7 +248,8 @@ async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
         await callback_query.message.delete()
         await client.send_photo(chat_id=callback_query.message.chat.id, photo=img_url, caption=msg_text, reply_markup=get_initial_keyboard())
     except Exception as e:
-        await callback_query.message.edit_text(f"{msg_text} \n\n (Preview failed: {e})", reply_markup=get_initial_keyboard())
+        # Fallback agar Telegram photo delete hone ke baad confuse ho
+        await client.send_message(chat_id=callback_query.message.chat.id, text=f"{msg_text} \n\n (Preview failed: {e})", reply_markup=get_initial_keyboard())
     raise StopPropagation
 
 
@@ -314,9 +315,14 @@ async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
     genres = ", ".join(anime.get('genres', [])[:3])
+    
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
+    
+    # FIX: TRUNCATE SYNOPSIS TO AVOID TELEGRAM 1024 LIMIT CRASH!
+    if synopsis and len(synopsis) > 300:
+        synopsis = synopsis[:297] + "..."
 
     images = user_data[user_id]['images']
     img_idx = user_data[user_id]['current_image_idx']
@@ -420,7 +426,10 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
-        await callback_query.message.delete()
+        # Avoid the crash: check if we can delete the 'processing' message first
+        try:
+            await callback_query.message.delete()
+        except: pass
         
         # Send Final Poster with Bold Buttons
         await client.send_photo(
@@ -431,7 +440,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             reply_markup=get_final_keyboard()
         )
     except Exception as e:
-        await callback_query.message.edit_text(f"Generation failed: {e}")
+        await client.send_message(chat_id=user_id, text=f"Generation failed: {e}")
 
     raise StopPropagation
 
