@@ -328,8 +328,6 @@ async def build_final_poster(client, callback_query, user_id):
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
-    
-    # 1024 Character Telegram Crash Safety net
     if synopsis and len(synopsis) > 300:
         synopsis = synopsis[:297] + "..."
 
@@ -401,10 +399,15 @@ async def build_final_poster(client, callback_query, user_id):
     caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
     return poster_buf, caption
 
-def get_final_keyboard():
+def get_final_keyboard(crop_state):
+    # ==========================================
+    # DYNAMIC BUTTON FIX: User ko pata chalega kab Style badlega aur kab Image!
+    # ==========================================
+    next_btn_text = "𝗡𝗘𝗫𝗧 𝗦𝗧𝗬𝗟𝗘" if crop_state == 0 else "𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘"
+    
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗦𝗞𝗜𝗣", callback_data="final_done"),
-         InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
+         InlineKeyboardButton(next_btn_text, callback_data="anime_final_next")],
         [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
 
@@ -436,16 +439,13 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             photo=poster_buf,
             caption=caption,
             parse_mode=ParseMode.HTML,
-            reply_markup=get_final_keyboard()
+            reply_markup=get_final_keyboard(user_data[user_id]['crop_state'])
         )
     except Exception as e:
         await client.send_message(chat_id=user_id, text=f"Generation failed: {e}")
 
     raise StopPropagation
 
-# ==========================================
-# TUMHARA 2-STEP CYCLE LOGIC (Next Image Button)
-# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -453,21 +453,23 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    # Cycle Crop State: 0 (Normal Fit) -> 1 (Tumhara Blurred Background Center Fit)
+    # ==========================================
+    # 2-STEP CYCLE LOGIC
+    # ==========================================
     user_data[user_id]['crop_state'] += 1
     if user_data[user_id]['crop_state'] > 1:
-        # Jab dono state dikh jaayein, toh state ko reset karke Agli Image par jaao!
+        # Style 1 aur 2 dono ho gaye? Ab Agli photo par jao aur Style reset kardo.
         user_data[user_id]['crop_state'] = 0
         user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
 
-    style_msg = "Manual Center Style" if user_data[user_id]['crop_state'] == 1 else "Normal Fit"
-    await callback_query.answer(f"Loading... ({style_msg})", show_alert=False)
+    style_msg = "Manual Center Fit" if user_data[user_id]['crop_state'] == 1 else "Normal Full Fit"
+    await callback_query.answer(f"Loading {style_msg}...", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
         await callback_query.edit_message_media(
             media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
-            reply_markup=get_final_keyboard()
+            reply_markup=get_final_keyboard(user_data[user_id]['crop_state'])
         )
     except Exception:
         pass
