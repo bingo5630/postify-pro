@@ -13,6 +13,49 @@ from plugins.utils import apply_small_caps
 
 user_data = {}
 
+# Yahan apni Fanart.tv ki API Key daal dena
+FANART_API_KEY = ""
+
+async def fetch_extra_images(title, mal_id=None):
+    extra_images = []
+    
+    # 1. Jikan (MAL) High-Res Pictures (Works automatically without API Key)
+    if mal_id:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"https://api.jikan.moe/v4/anime/{mal_id}/pictures") as resp:
+                    data = await resp.json()
+                    if 'data' in data:
+                        for pic in data['data']:
+                            if 'large_image_url' in pic['jpg']:
+                                extra_images.append(pic['jpg']['large_image_url'])
+        except Exception:
+            pass
+
+    # 2. Fanart.tv Integration (Requires API Key)
+    if FANART_API_KEY:
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"https://webservice.fanart.tv/v3/search/tv?api_key={FANART_API_KEY}&query={title}"
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data and isinstance(data, list) and len(data) > 0:
+                            tv_id = data[0].get('tvdb_id')
+                            if tv_id:
+                                img_url = f"https://webservice.fanart.tv/v3/tv/{tv_id}?api_key={FANART_API_KEY}"
+                                async with session.get(img_url) as img_resp:
+                                    if img_resp.status == 200:
+                                        img_data = await img_resp.json()
+                                        for bg in img_data.get('showbackground', []):
+                                            extra_images.append(bg['url'])
+                                        for poster in img_data.get('tvposter', []):
+                                            extra_images.append(poster['url'])
+        except Exception:
+            pass
+            
+    return extra_images
+
 async def fetch_anime_search(query, source="anilist"):
     if source == "mal":
         url = f"https://api.jikan.moe/v4/anime?q={query}&limit=5"
@@ -97,9 +140,8 @@ async def anime_cmd(client: Bot, message: Message):
 @Bot.on_callback_query(filters.regex("^search_anilist$"), group=-1)
 async def handle_anilist_search(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-
     if user_id not in user_data:
-        await callback_query.answer("Session expired. Please start again.", show_alert=True)
+        await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
     query = user_data[user_id]['query']
@@ -109,54 +151,43 @@ async def handle_anilist_search(client: Bot, callback_query: CallbackQuery):
     try:
         results = await fetch_anime_search(query, "anilist")
         user_data[user_id]['results'] = results
-
         if not results:
-            await callback_query.message.edit_text("No results found. Please try another query.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
+            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
             raise StopPropagation
 
-        buttons = []
-        for i, anime in enumerate(results):
-            title = anime['title']['english'] or anime['title']['romaji']
-            buttons.append([InlineKeyboardButton(title, callback_data=f"sel_ani_{i}")])
+        buttons = [[InlineKeyboardButton(anime['title']['english'] or anime['title']['romaji'], callback_data=f"sel_ani_{i}")] for i, anime in enumerate(results)]
         buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")])
 
-        await callback_query.message.edit_text(f"SEARCH RESULTS (ANILIST) \n SELECT THE CORRECT TITLE FROM THE LIST BELOW:", reply_markup=InlineKeyboardMarkup(buttons))
+        await callback_query.message.edit_text(f"SEARCH RESULTS (ANILIST):", reply_markup=InlineKeyboardMarkup(buttons))
     except Exception as e:
-        await callback_query.message.edit_text(f"❌ API Crash: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
-    
+        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
     raise StopPropagation
 
 
 @Bot.on_callback_query(filters.regex("^search_mal$"), group=-1)
 async def handle_mal_search(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-
     if user_id not in user_data:
-        await callback_query.answer("Session expired. Please start again.", show_alert=True)
+        await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
     query = user_data[user_id]['query']
-    await callback_query.answer("Fetching from MyAnimeList...")
+    await callback_query.answer("Fetching from MAL...")
     await callback_query.message.edit_text("Searching...")
 
     try:
         results = await fetch_anime_search(query, "mal")
         user_data[user_id]['results'] = results
-
         if not results:
-            await callback_query.message.edit_text("No results found. Please try another query.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
+            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
             raise StopPropagation
 
-        buttons = []
-        for i, anime in enumerate(results):
-            title = anime['title']['english'] or anime['title']['romaji']
-            buttons.append([InlineKeyboardButton(title, callback_data=f"sel_mal_{i}")])
+        buttons = [[InlineKeyboardButton(anime['title']['english'] or anime['title']['romaji'], callback_data=f"sel_mal_{i}")] for i, anime in enumerate(results)]
         buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")])
 
-        await callback_query.message.edit_text(f"SEARCH RESULTS (MAL) \n SELECT THE CORRECT TITLE FROM THE LIST BELOW:", reply_markup=InlineKeyboardMarkup(buttons))
+        await callback_query.message.edit_text(f"SEARCH RESULTS (MAL):", reply_markup=InlineKeyboardMarkup(buttons))
     except Exception as e:
-        await callback_query.message.edit_text(f"❌ API Crash: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
-    
+        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
     raise StopPropagation
 
 
@@ -164,17 +195,20 @@ async def handle_mal_search(client: Bot, callback_query: CallbackQuery):
 async def close_anime_menu(client: Bot, callback_query: CallbackQuery):
     await callback_query.answer()
     user_id = callback_query.from_user.id
-    if user_id in user_data:
-        del user_data[user_id]
+    if user_id in user_data: del user_data[user_id]
     await callback_query.message.delete()
     raise StopPropagation
 
 
-def get_preview_keyboard():
+# ==========================================
+# STAGE 1: INITIAL PREVIEW KEYBOARD (NO NEXT IMAGE HERE)
+# Left: Custom Img | Right: Skip
+# Bottom: Cancel
+# ==========================================
+def get_initial_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(apply_small_caps("Next Image"), callback_data="anime_thumb_next")],
-        [InlineKeyboardButton(apply_small_caps("Custom Image"), callback_data="anime_thumb_custom")],
-        [InlineKeyboardButton(apply_small_caps("Skip"), callback_data="anime_audio_menu")],
+        [InlineKeyboardButton(apply_small_caps("Custom Img"), callback_data="anime_thumb_custom"),
+         InlineKeyboardButton(apply_small_caps("Skip"), callback_data="anime_audio_menu")],
         [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
 
@@ -182,63 +216,39 @@ def get_preview_keyboard():
 @Bot.on_callback_query(filters.regex(r"^sel_(ani|mal)_(\d+)"), group=-1)
 async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-
     if user_id not in user_data:
-        await callback_query.answer("Session expired. Please start again with /anime.", show_alert=True)
+        await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
+
+    await callback_query.message.edit_text("⏳ Fetching High-Res Posters & Fanart...")
 
     idx = int(callback_query.matches[0].group(2))
     selected_anime = user_data[user_id]['results'][idx]
     user_data[user_id]['selected_anime'] = selected_anime
 
     title = selected_anime['title']['english'] or selected_anime['title']['romaji']
+    
+    # Base images
     images = []
     if selected_anime.get('bannerImage'): images.append(selected_anime['bannerImage'])
     if selected_anime.get('coverImage', {}).get('extraLarge'): images.append(selected_anime['coverImage']['extraLarge'])
-
+    
+    # Fetch Extra from Jikan/Fanart
+    extra = await fetch_extra_images(title, mal_id=selected_anime.get('id'))
+    images.extend(extra)
+    
+    # Remove duplicates but keep order
+    images = list(dict.fromkeys(images))
     user_data[user_id]['images'] = images
 
     img_url = images[0] if images else "https://via.placeholder.com/1920x1080"
-
-    msg_text = f"🖼 CUSTOM POSTER FOR '{title}' \n SEND ME A CUSTOM THUMBNAIL IMAGE, OR CLICK SKIP TO USE THIS POSTER."
+    msg_text = apply_small_caps("Poster selection ready. Send custom image or skip to proceed.")
 
     try:
         await callback_query.message.delete()
-        await client.send_photo(chat_id=callback_query.message.chat.id, photo=img_url, caption=msg_text, reply_markup=get_preview_keyboard())
+        await client.send_photo(chat_id=callback_query.message.chat.id, photo=img_url, caption=msg_text, reply_markup=get_initial_keyboard())
     except Exception as e:
-        await callback_query.message.edit_text(f"{msg_text} \n\n (Preview failed: {e})", reply_markup=get_preview_keyboard())
-    
-    raise StopPropagation
-
-
-@Bot.on_callback_query(filters.regex("^anime_thumb_next$"), group=-1)
-async def handle_anime_thumb_next(client: Bot, callback_query: CallbackQuery):
-    user_id = callback_query.from_user.id
-    if user_id not in user_data:
-        await callback_query.answer("Session expired. Please start again.", show_alert=True)
-        raise StopPropagation
-
-    user_data[user_id]['crop_state'] += 1
-    if user_data[user_id]['crop_state'] > 2:
-        user_data[user_id]['crop_state'] = 0
-        user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
-
-    await callback_query.answer(f"Crop State: {['Center', 'Left', 'Right'][user_data[user_id]['crop_state']]} | Img: {user_data[user_id]['current_image_idx'] + 1}")
-
-    anime = user_data[user_id]['selected_anime']
-    title = anime['title']['english'] or anime['title']['romaji']
-    images = user_data[user_id]['images']
-    img_idx = user_data[user_id]['current_image_idx']
-    image_url = images[img_idx] if images else "https://via.placeholder.com/1920x1080"
-
-    msg_text = f"🖼 CUSTOM POSTER FOR '{title}' \n SEND ME A CUSTOM THUMBNAIL IMAGE, OR CLICK SKIP TO USE THIS POSTER."
-
-    try:
-        if callback_query.message.photo:
-            await callback_query.edit_message_media(media=InputMediaPhoto(image_url, caption=msg_text), reply_markup=get_preview_keyboard())
-    except:
-        pass
-    
+        await callback_query.message.edit_text(f"{msg_text} \n\n (Preview failed: {e})", reply_markup=get_initial_keyboard())
     raise StopPropagation
 
 
@@ -246,35 +256,29 @@ async def handle_anime_thumb_next(client: Bot, callback_query: CallbackQuery):
 async def handle_anime_thumb_custom(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     if user_id not in user_data:
-        await callback_query.answer("Session expired. Please start again.", show_alert=True)
+        await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
     await callback_query.answer("Please send the custom photo now.")
     try:
         response = await client.ask(user_id, "Send the custom image for the poster now:", filters=filters.photo, timeout=60)
-
         photo_path = await response.download()
         user_data[user_id]['custom_image'] = photo_path
-
-        # Proceed to Audio Menu
         await anime_audio_menu(client, callback_query)
     except asyncio.TimeoutError:
         await client.send_message(user_id, "Timeout occurred. Custom upload canceled.")
-    
     raise StopPropagation
 
 
 @Bot.on_callback_query(filters.regex("^anime_audio_menu$"), group=-1)
 async def anime_audio_menu(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Hindi", callback_data="anime_audio_Hindi"), InlineKeyboardButton("English", callback_data="anime_audio_English")],
         [InlineKeyboardButton("Dual Audio", callback_data="anime_audio_Dual Audio"), InlineKeyboardButton("Multi Audio", callback_data="anime_audio_Multi Audio")],
         [InlineKeyboardButton("Jap & Eng", callback_data="anime_audio_Jap & Eng"), InlineKeyboardButton("Custom Text", callback_data="anime_audio_custom")],
         [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
-
     msg_text = "Select Audio Language or send custom text:"
 
     if callback_query.message.photo:
@@ -282,7 +286,6 @@ async def anime_audio_menu(client: Bot, callback_query: CallbackQuery):
         await client.send_message(user_id, msg_text, reply_markup=keyboard)
     else:
         await callback_query.message.edit_text(msg_text, reply_markup=keyboard)
-    
     raise StopPropagation
 
 
@@ -290,45 +293,27 @@ async def anime_audio_menu(client: Bot, callback_query: CallbackQuery):
 async def handle_anime_audio_custom(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     if user_id not in user_data:
-        await callback_query.answer("Session expired. Please start again.", show_alert=True)
+        await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
     await callback_query.answer("Please send the custom audio text now.")
     try:
         response = await client.ask(user_id, "Send the custom audio text:", timeout=60)
-
         user_data[user_id]['audio'] = response.text
-        # Trigger generate directly by mocking callback data
         callback_query.data = f"anime_audio_{response.text}"
         await handle_anime_generate(client, callback_query)
     except asyncio.TimeoutError:
-        await client.send_message(user_id, "Timeout occurred. Custom audio input canceled.")
-        
+        await client.send_message(user_id, "Timeout occurred.")
     raise StopPropagation
 
 
-@Bot.on_callback_query(filters.regex(r"^anime_audio_(.*)"), group=-1)
-async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
-    user_id = callback_query.from_user.id
-    if user_id not in user_data:
-        await callback_query.answer("Session expired. Please start again.", show_alert=True)
-        raise StopPropagation
-
-    if callback_query.data != "anime_audio_custom":
-        audio = callback_query.matches[0].group(1) if hasattr(callback_query, 'matches') and callback_query.matches else callback_query.data.replace("anime_audio_", "")
-        user_data[user_id]['audio'] = audio
-    else:
-        audio = user_data[user_id]['audio']
-
-    await callback_query.message.edit_text("⏳ FETCHING METADATA FROM SOURCE...")
-    await asyncio.sleep(1)
-    await callback_query.message.edit_text("⏳ GENERATING ANIME POSTER...")
-
+# ==========================================
+# POSTER GENERATION LOGIC
+# ==========================================
+async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
     genres = ", ".join(anime.get('genres', [])[:3])
-    
-    # Cleaning synopsis of basic HTML. dynamic will handle dynamic truncation based dynamic.
     synopsis = anime.get('description', '')
     if synopsis:
         synopsis = synopsis.replace('<br>', '').replace('<i>', '').replace('</i>', '').replace('<b>', '').replace('</b>', '')
@@ -336,15 +321,14 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     images = user_data[user_id]['images']
     img_idx = user_data[user_id]['current_image_idx']
     image_url = images[img_idx] if images else "https://via.placeholder.com/1920x1080"
-
     custom_image_path = user_data[user_id].get('custom_image')
     crop_state = user_data[user_id]['crop_state']
+    audio = user_data[user_id].get('audio', 'N/A')
 
     try:
         from plugins.settings import font_toggles
         small_caps = font_toggles.get(user_id, {}).get("style_smallcaps", True)
-    except:
-        small_caps = False
+    except: small_caps = False
 
     try:
         from databases.database import db
@@ -375,8 +359,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     try:
         caption_template = await db.get_caption(user_id)
-    except:
-        caption_template = None
+    except: caption_template = None
 
     if not caption_template:
         caption_template = "<b>{title}</b>\n\n» Type: <code>{type}</code>\n» Rating: <code>{rating}</code>\n» Status: <code>{status}</code>\n» Episodes: <code>{episodes}</code>\n» Genre: {genres}\n\n<blockquote expandable>➤ Synopsis: {plot}</blockquote>"
@@ -396,29 +379,100 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     v_audio = apply_small_caps(audio) if small_caps else audio
 
     try:
-        caption = caption_template.format(
-            title=v_title,
-            type=v_type,
-            rating=v_rating,
-            status=v_status,
-            episodes=v_episodes,
-            genres=v_genres,
-            plot=v_plot,
-            synopsis=v_plot,
-            audio=v_audio,
-            year="N/A",
-            season="N/A"
-        )
-    except Exception as e:
+        caption = caption_template.format(title=v_title, type=v_type, rating=v_rating, status=v_status, episodes=v_episodes, genres=v_genres, plot=v_plot, synopsis=v_plot, audio=v_audio, year="N/A", season="N/A")
+    except Exception:
         caption = f"<b>{v_title}</b>\n\n<b>Audio:</b> {v_audio}\n<b>Genres:</b> {v_genres}"
 
-    await callback_query.message.delete()
-    await client.send_photo(
-        chat_id=user_id,
-        photo=poster_buf,
-        caption=caption,
-        parse_mode=ParseMode.HTML
-    )
+    # SMALL CAPS MESSAGE APPENDED TO CAPTION
+    caption += f"\n\n{apply_small_caps('Poster generation complete. Check preview and change image if needed.')}"
+    return poster_buf, caption
 
-    del user_data[user_id]
+
+# ==========================================
+# STAGE 3: THE FINAL BOLD BUTTONS
+# Left: [ 𝗦𝗞𝗜𝗣 ] | Right: [ 𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘 ]
+# Bottom: Cancel
+# ==========================================
+def get_final_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("𝗦𝗞𝗜𝗣", callback_data="final_done"),
+         InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
+    ])
+
+
+@Bot.on_callback_query(filters.regex(r"^anime_audio_(.*)"), group=-1)
+async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        await callback_query.answer("Session expired.", show_alert=True)
+        raise StopPropagation
+
+    if callback_query.data != "anime_audio_custom":
+        audio = callback_query.matches[0].group(1) if hasattr(callback_query, 'matches') and callback_query.matches else callback_query.data.replace("anime_audio_", "")
+        user_data[user_id]['audio'] = audio
+    else:
+        audio = user_data[user_id]['audio']
+
+    await callback_query.message.edit_text("⏳ FETCHING METADATA...")
+    await asyncio.sleep(1)
+    await callback_query.message.edit_text("⏳ APPLYING ENHANCEMENTS AND GENERATING POSTER...")
+
+    try:
+        poster_buf, caption = await build_final_poster(client, callback_query, user_id)
+        await callback_query.message.delete()
+        
+        # Send Final Poster with Bold Buttons
+        await client.send_photo(
+            chat_id=user_id,
+            photo=poster_buf,
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+            reply_markup=get_final_keyboard()
+        )
+    except Exception as e:
+        await callback_query.message.edit_text(f"Generation failed: {e}")
+
+    raise StopPropagation
+
+
+# ==========================================
+# LIVE "NEXT IMAGE" CYCLING ON FINAL POSTER
+# ==========================================
+@Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
+async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        await callback_query.answer("Session expired.", show_alert=True)
+        raise StopPropagation
+
+    # Cycle Crop State and Image Index
+    user_data[user_id]['crop_state'] += 1
+    if user_data[user_id]['crop_state'] > 2:
+        user_data[user_id]['crop_state'] = 0
+        user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
+
+    await callback_query.answer("Generating next image preview...", show_alert=False)
+
+    try:
+        poster_buf, caption = await build_final_poster(client, callback_query, user_id)
+        # Edit the existing final poster with the newly generated one
+        await callback_query.edit_message_media(
+            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML), 
+            reply_markup=get_final_keyboard()
+        )
+    except Exception:
+        pass
+    raise StopPropagation
+
+
+@Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
+async def handle_final_done(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    await callback_query.answer("Done!")
+    # Remove buttons since process is complete
+    await callback_query.edit_message_reply_markup(reply_markup=None)
+    
+    if user_id in user_data:
+        del user_data[user_id]
     raise StopPropagation
