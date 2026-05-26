@@ -18,19 +18,20 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
 # ==========================================
 # 11 COLOUR TEMPLATES & HEX CODES
+# (Tumhare EXACT links yahan par hain)
 # ==========================================
 COLORS = [
     {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
-    {"name": "GREEN", "hex": "#28a745", "url": "https://i.ibb.co/G4GhnCsZ/green.png"},
-    {"name": "NAVY GREEN", "hex": "#4A5D23", "url": "https://i.ibb.co/1fVPgwqd/navy-green.png"},
-    {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://i.ibb.co/yTznRcZ/dark-yellow.png"},
-    {"name": "PINK", "hex": "#FF69B4", "url": "https://i.ibb.co/b5DVk3LR/pink.png"},
-    {"name": "BLUE", "hex": "#007BFF", "url": "https://i.ibb.co/pjz3Ts34/blue.png"},
-    {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://i.ibb.co/C3jnf6sr/pale-green.png"},
-    {"name": "RED", "hex": "#DC143C", "url": "https://i.ibb.co/9m1V2CPM/red.png"},
-    {"name": "TEAL BLUE", "hex": "#008080", "url": "https://i.ibb.co/LXD0djss/teal-blue.png"},
-    {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://i.ibb.co/FLqd5jt4/dark-purple.png"},
-    {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://i.ibb.co/yc8zYYYt/purple.png"}
+    {"name": "GREEN", "hex": "#28a745", "url": "https://ibb.co/G4GhnCsZ"},
+    {"name": "NAVY GREEN", "hex": "#4A5D23", "url": "https://ibb.co/1fVPgwqd"},
+    {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://ibb.co/yTznRcZ"},
+    {"name": "PINK", "hex": "#FF69B4", "url": "https://ibb.co/b5DVk3LR"},
+    {"name": "BLUE", "hex": "#007BFF", "url": "https://ibb.co/pjz3Ts34"},
+    {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://ibb.co/C3jnf6sr"},
+    {"name": "RED", "hex": "#DC143C", "url": "https://ibb.co/9m1V2CPM"},
+    {"name": "TEAL BLUE", "hex": "#008080", "url": "https://ibb.co/LXD0djss"},
+    {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://ibb.co/FLqd5jt4"},
+    {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://ibb.co/yc8zYYYt"}
 ]
 
 async def fetch_extra_images(title_eng, title_rom, mal_id=None):
@@ -157,8 +158,8 @@ async def anime_cmd(client: Bot, message: Message):
         'query': query,
         'results': [],
         'selected_anime': None,
-        'crop_state': 0,
-        'color_state': 0,
+        'crop_state': 0, # 0=Center, 1=Left, 2=Right
+        'color_state': 0, # Template Color tracking
         'images': [],
         'current_image_idx': 0,
         'audio': None,
@@ -429,6 +430,9 @@ async def build_final_poster(client, callback_query, user_id):
 
     return poster_buf, caption
 
+# ==========================================
+# 5 BUTTON LAYOUT
+# ==========================================
 def get_final_keyboard(color_state):
     color_name = COLORS[color_state]['name']
     
@@ -463,7 +467,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
             await callback_query.message.delete()
         except: pass
         
-        # Send Photo
+        # 1. Poster Send (No Buttons)
         photo_msg = await client.send_photo(
             chat_id=user_id,
             photo=poster_buf,
@@ -473,7 +477,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
         
         user_data[user_id]['photo_msg_id'] = photo_msg.id
         
-        # Send Controls Separately
+        # 2. Controls Menu Send
         await client.send_message(
             chat_id=user_id,
             text=f"⚙️ **{apply_small_caps('POSTER CONTROLS:')}**\nUse buttons below to modify your poster:",
@@ -486,7 +490,7 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
     raise StopPropagation
 
 # ==========================================
-# 5-WAY UNIVERSAL MOVE LOGIC (Center, Top, Bottom, Left, Right)
+# MOVE BUTTON
 # ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
 async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
@@ -494,10 +498,8 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
 
-    # 0=Center, 1=Top, 2=Bottom, 3=Left, 4=Right
-    user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 5
-    states = ["Center Focus", "Top Focus", "Bottom Focus", "Left Focus", "Right Focus"]
-    
+    user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
+    states = ["Center Focus", "Left Focus", "Right Focus"]
     await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
 
     try:
@@ -511,6 +513,9 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
+# ==========================================
+# NEXT IMAGE BUTTON
+# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_next$"), group=-1)
 async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -531,6 +536,9 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
+# ==========================================
+# COLOUR CHANGE BUTTON
+# ==========================================
 @Bot.on_callback_query(filters.regex("^anime_final_color$"), group=-1)
 async def handle_anime_final_color(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -558,6 +566,9 @@ async def handle_anime_final_color(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
+# ==========================================
+# DONE BUTTON
+# ==========================================
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
