@@ -8,7 +8,7 @@ import asyncio
 MAIN_SETTINGS_TEXT = f"""{apply_small_caps("i'm an auto post maker & thumb maker bot, built with love.")}
 
 {apply_small_caps("❝ ​❝ I’ll teach you about the world... and how limited your vision really is. ❞")}
-— {apply_small_caps("Gojo")}
+— {apply_small_caps("➳≛⃝ Gojo ×͜×")}
 
 ✖️ {apply_small_caps("choose the category for which you wanna get help.")} {apply_small_caps("ask your doubts at support chat.")}
 
