@@ -540,11 +540,292 @@ async def handle_anime_final_color(client: Bot, callback_query: CallbackQuery):
         pass
     raise StopPropagation
 
+def get_channel_pagination_keyboard(channels, page=0):
+    PER_PAGE = 10
+    total_pages = (len(channels) + PER_PAGE - 1) // PER_PAGE
+    start_idx = page * PER_PAGE
+    end_idx = min(start_idx + PER_PAGE, len(channels))
+
+    keyboard_buttons = []
+    current_row = []
+    for i in range(start_idx, end_idx):
+        channel = channels[i]
+        current_row.append(InlineKeyboardButton(channel['title'], callback_data=f"anime_pub_ch_{channel['id']}"))
+        if len(current_row) == 2:
+            keyboard_buttons.append(current_row)
+            current_row = []
+    if current_row:
+        keyboard_buttons.append(current_row)
+
+    pagination_row = []
+    if page > 0:
+        pagination_row.append(InlineKeyboardButton("⬅️", callback_data=f"anime_pub_page_{page-1}"))
+    if page < total_pages - 1:
+        pagination_row.append(InlineKeyboardButton("➡️", callback_data=f"anime_pub_page_{page+1}"))
+
+    if pagination_row:
+        keyboard_buttons.append(pagination_row)
+
+    keyboard_buttons.append([InlineKeyboardButton("𝗠𝗘𝗡𝗨", callback_data="close_anime_menu"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="close_anime_menu")])
+    return InlineKeyboardMarkup(keyboard_buttons)
+
+async def process_publish_workflow(client: Bot, callback_query: CallbackQuery, user_id: int, page=0, edit_message=False):
+    channels = await db.get_user_channels(user_id)
+    if not channels:
+        msg = "You haven't added any channels. Use ➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ to add one first."
+        if edit_message:
+            await callback_query.message.edit_text(msg)
+        else:
+            await client.send_message(user_id, msg)
+        return
+
+    channels.sort(key=lambda x: str(x.get('title', '')).lower())
+
+    keyboard = get_channel_pagination_keyboard(channels, page)
+    msg_text = "Select a channel to publish to:"
+
+    if edit_message:
+        await callback_query.message.edit_text(msg_text, reply_markup=keyboard)
+    else:
+        await client.send_message(user_id, msg_text, reply_markup=keyboard)
+
+@Bot.on_callback_query(filters.regex(r"^anime_pub_page_(\d+)$"), group=-1)
+async def handle_anime_pub_page(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        return await callback_query.answer("Session expired.", show_alert=True)
+    page = int(callback_query.matches[0].group(1))
+    await process_publish_workflow(client, callback_query, user_id, page=page, edit_message=True)
+    raise StopPropagation
+
+def parse_anime_buttons(config_str: str, target_link: str) -> InlineKeyboardMarkup:
+    if not config_str:
+        return None
+    rows = []
+    lines = config_str.strip().split('\n')
+    for line in lines:
+        if not line.strip():
+            continue
+        buttons_in_row = line.split('&&')
+        row = []
+        for btn_str in buttons_in_row:
+            parts = btn_str.split('-', 1)
+            if len(parts) == 2:
+                btn_text = parts[0].strip()
+                if btn_text.startswith('#'):
+                    btn_text = btn_text.split(' ', 1)[1] if ' ' in btn_text else btn_text
+                btn_url = parts[1].strip().replace('{link}', target_link)
+                row.append(InlineKeyboardButton(btn_text, url=btn_url))
+        if row:
+            rows.append(row)
+    return InlineKeyboardMarkup(rows) if rows else None
+
+async def send_anime_post(client: Bot, user_id: int, chat_id: int, pin: bool = False):
+    if user_id not in user_data or not user_data[user_id].get('photo_msg_id'):
+        return None
+
+    try:
+        poster_buf, caption = await build_final_poster(client, None, user_id)
+        post_link = user_data[user_id].get('post_link', '')
+
+        button_config = await db.get_anime_button_config(user_id)
+        if not button_config:
+            button_config = "Join - {link} && Group - https://t.me/posterprobot\nFor More - https://t.me/posterprobot"
+
+        reply_markup = parse_anime_buttons(button_config, post_link)
+
+        msg = await client.send_photo(
+            chat_id=chat_id,
+            photo=poster_buf,
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup
+        )
+
+        if pin:
+            try:
+                await msg.pin()
+            except Exception:
+                pass
+        return msg
+    except Exception as e:
+        import logging
+        logging.error(f"Error sending anime post: {e}")
+        return None
+
+@Bot.on_callback_query(filters.regex("^anime_pub_cancel_confirm$"), group=-1)
+async def handle_anime_pub_cancel_confirm(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        return await callback_query.answer("Session expired.", show_alert=True)
+    await process_publish_workflow(client, callback_query, user_id, page=0, edit_message=True)
+    raise StopPropagation
+
+@Bot.on_callback_query(filters.regex("^anime_pub_confirm$"), group=-1)
+async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
+        return await callback_query.answer("Session expired.", show_alert=True)
+
+    msg_text = """<blockquote>ᴛʜʀᴏᴜɢʜ ᴛʜɪs ᴍᴇɴᴜ ʏᴏᴜ ᴄᴀɴ sᴀᴠᴇ ᴛʜᴇ ᴘᴏsᴛ ᴛᴏ sᴇɴᴅ ɪᴛ ʟᴀᴛᴇʀ ᴏʀ ᴄʜᴏᴏsᴇ ᴀᴅᴅɪᴛɪᴏɴᴀʟ sᴇᴛᴛɪɴɢs ʙᴇғᴏʀᴇ sᴇɴᴅɪɴɢ ɪᴛ ɪɴ ᴏɴᴇ ᴏʀ ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs.
+
+• Press "Schedule sending" to schedule the post to be sent at a future date
+• Press "Schedule deletion" to schedule the post to be deleted at a future date
+• Press "Pin post" to pin the post at the top of the channel.</blockquote>"""
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧", callback_data="anime_pub_send"), InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧 𝗧𝗢 𝗠𝗢𝗥𝗘 𝗖𝗛𝗔𝗡𝗡𝗘𝗟𝗦", callback_data="anime_pub_more")],
+        [InlineKeyboardButton("𝗦𝗖𝗛𝗘𝗗𝗨𝗟𝗘 𝗦𝗘𝗡𝗗𝗜𝗡𝗚", callback_data="anime_pub_schedule"), InlineKeyboardButton("𝗣𝗜𝗡 𝗣𝗢𝗦𝗧", callback_data="anime_pub_pin")],
+        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_pub_back"), InlineKeyboardButton("𝗠𝗘𝗡𝗨", callback_data="close_anime_menu")],
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
+    ])
+
+    await callback_query.message.edit_text(msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+    raise StopPropagation
+
+@Bot.on_callback_query(filters.regex(r"^anime_pub_ch_(-\d+|\d+)$"), group=-1)
+async def handle_anime_pub_ch(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        return await callback_query.answer("Session expired.", show_alert=True)
+
+    chat_id = int(callback_query.matches[0].group(1))
+    user_data[user_id]['publish_chat_id'] = chat_id
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Confirm Sending", callback_data="anime_pub_confirm"), InlineKeyboardButton("No", callback_data="anime_pub_cancel_confirm")],
+        [InlineKeyboardButton("Back", callback_data="anime_pub_cancel_confirm")]
+    ])
+
+    await callback_query.message.edit_text("Do you want to post in this specific channel?", reply_markup=keyboard)
+    raise StopPropagation
+
+@Bot.on_callback_query(filters.regex("^anime_pub_back$"), group=-1)
+async def handle_anime_pub_back(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data:
+        return await callback_query.answer("Session expired.", show_alert=True)
+    await process_publish_workflow(client, callback_query, user_id)
+    raise StopPropagation
+
+@Bot.on_callback_query(filters.regex("^anime_pub_send$"), group=-1)
+async def handle_anime_pub_send(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
+        return await callback_query.answer("Session expired.", show_alert=True)
+
+    chat_id = user_data[user_id]['publish_chat_id']
+    await callback_query.message.edit_text("Sending post...")
+    msg = await send_anime_post(client, user_id, chat_id)
+    if msg:
+        await callback_query.message.edit_text("Post sent successfully.")
+    else:
+        await callback_query.message.edit_text("Failed to send post.")
+    raise StopPropagation
+
+@Bot.on_callback_query(filters.regex("^anime_pub_pin$"), group=-1)
+async def handle_anime_pub_pin(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
+        return await callback_query.answer("Session expired.", show_alert=True)
+
+    chat_id = user_data[user_id]['publish_chat_id']
+    await callback_query.message.edit_text("Sending and pinning post...")
+    msg = await send_anime_post(client, user_id, chat_id, pin=True)
+    if msg:
+        await callback_query.message.edit_text("Post sent and pinned successfully.")
+    else:
+        await callback_query.message.edit_text("Failed to send/pin post.")
+    raise StopPropagation
+
+@Bot.on_callback_query(filters.regex("^anime_pub_more$"), group=-1)
+async def handle_anime_pub_more(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
+        return await callback_query.answer("Session expired.", show_alert=True)
+
+    chat_id = user_data[user_id]['publish_chat_id']
+    await callback_query.message.edit_text("Sending post to current channel...")
+    msg = await send_anime_post(client, user_id, chat_id)
+    if msg:
+        await callback_query.answer("Post sent. Select next channel.", show_alert=False)
+        await process_publish_workflow(client, callback_query, user_id)
+    else:
+        await callback_query.message.edit_text("Failed to send post.")
+    raise StopPropagation
+
+from datetime import datetime
+
+@Bot.on_callback_query(filters.regex("^anime_pub_schedule$"), group=-1)
+async def handle_anime_pub_schedule(client: Bot, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
+        return await callback_query.answer("Session expired.", show_alert=True)
+
+    chat_id = user_data[user_id]['publish_chat_id']
+
+    msg_text = """<blockquote>Sending schedule
+Write the date in which the post will be sent using this format:
+dd/mm/yy hh:mm
+
+Examples:
+<code>1/4/2022 22:30</code>
+<code>in 10 days 5 hours 2 minutes</code>
+<code>tomorrow at 12:00</code></blockquote>"""
+
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]])
+
+    try:
+        response = await client.ask(user_id, msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML, timeout=120)
+
+        # Simple parsing for dd/mm/yy hh:mm
+        try:
+            # We'll just support the exact dd/mm/yy hh:mm for now since full NLP parsing is complex
+            dt_str = response.text.strip()
+            # If length is 14 like 01/04/22 22:30 or 15 for 01/04/2022 22:30
+            try:
+                if len(dt_str.split('/')[2].split(' ')[0]) == 2:
+                    dt_obj = datetime.strptime(dt_str, "%d/%m/%y %H:%M")
+                else:
+                    dt_obj = datetime.strptime(dt_str, "%d/%m/%Y %H:%M")
+            except ValueError:
+                # Basic relative handling (very simplified)
+                from datetime import timedelta
+                dt_obj = datetime.now()
+                if "in" in dt_str.lower() and "minute" in dt_str.lower():
+                    import re
+                    mins = re.search(r'in (\d+) minute', dt_str.lower())
+                    if mins: dt_obj += timedelta(minutes=int(mins.group(1)))
+                else:
+                    await client.send_message(user_id, "Could not parse date format. Please use dd/mm/yy hh:mm (e.g. 15/05/24 14:30)")
+                    return
+
+            client.scheduler.add_job(
+                send_anime_post,
+                'date',
+                run_date=dt_obj,
+                args=[client, user_id, chat_id]
+            )
+            await client.send_message(user_id, f"Post scheduled successfully for {dt_obj.strftime('%d/%m/%Y %H:%M')}.")
+        except Exception as e:
+            await client.send_message(user_id, f"Error parsing date or scheduling: {e}")
+
+    except asyncio.TimeoutError:
+        await client.send_message(user_id, "Scheduling canceled due to timeout.")
+    raise StopPropagation
+
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-    await callback_query.answer("Poster Done! Safe to share.")
-    await callback_query.message.delete()
-    if user_id in user_data:
-        del user_data[user_id]
+    await callback_query.answer("Poster Done! Fetching channels...")
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
+    ])
+    try:
+        response = await client.ask(user_id, "<blockquote>ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴍᴇ ᴛʜᴇ ʟɪɴᴋ ғᴏʀ ᴛʜᴇ ᴘᴏsᴛ/ᴅᴏᴡɴʟᴏᴀᴅ ʙᴜᴛᴛᴏɴ</blockquote>", reply_markup=keyboard, parse_mode=ParseMode.HTML, timeout=120)
+        user_data[user_id]['post_link'] = response.text
+        await process_publish_workflow(client, callback_query, user_id)
+    except asyncio.TimeoutError:
+        await client.send_message(user_id, "Publish process canceled due to timeout.")
     raise StopPropagation
