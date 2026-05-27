@@ -11,14 +11,14 @@ ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 
 # ==========================================
-# FIX: CORRECT GOOGLE FONTS GITHUB LINKS
+# ADVANCED FONT DOWNLOADER (Direct Raw Links to avoid HTML errors)
 # ==========================================
 os.makedirs(FONTS_DIR, exist_ok=True)
 
 def download_font(url, filename):
     filepath = os.path.join(FONTS_DIR, filename)
-    # Check if file exists AND is larger than 10KB (to avoid downloading 404 HTML pages)
-    if not os.path.exists(filepath) or os.path.getsize(filepath) < 10000:
+    # Check if file exists AND is an actual font file (size > 20KB)
+    if not os.path.exists(filepath) or os.path.getsize(filepath) < 20000:
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req) as response, open(filepath, 'wb') as out_file:
@@ -27,10 +27,10 @@ def download_font(url, filename):
             print(f"Font download error: {e}")
     return filepath
 
-# Fixed paths to 'ofl/roboto' instead of 'apache/roboto'
-FONT_TITLE_WHITE = download_font("https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Bold.ttf", "Roboto-Bold.ttf")
-FONT_TITLE_COLORED = download_font("https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Black.ttf", "Roboto-Black.ttf")
-FONT_BODY = download_font("https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Medium.ttf", "Roboto-Medium.ttf")
+# Official Direct Raw Links
+FONT_TITLE_WHITE = download_font("https://raw.githubusercontent.com/google/fonts/main/ofl/roboto/Roboto-Bold.ttf", "Roboto-Bold.ttf")
+FONT_TITLE_COLORED = download_font("https://raw.githubusercontent.com/google/fonts/main/ofl/roboto/Roboto-Black.ttf", "Roboto-Black.ttf")
+FONT_BODY = download_font("https://raw.githubusercontent.com/google/fonts/main/ofl/roboto/Roboto-Medium.ttf", "Roboto-Medium.ttf")
 
 TEMPLATE_PATH = os.path.join(ASSETS_DIR, "template.png")
 HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
@@ -78,6 +78,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     else:
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
+    # DYNAMIC TEMPLATE LOADER (Handles ImgBB HTML)
     base_template = None
     if template_url and template_url.startswith("http"):
         try:
@@ -115,6 +116,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
+    # HEAVILY BLURRED BACKGROUND (Fills empty areas)
     blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
     blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
     blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
@@ -127,6 +129,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     mask_h = bbox[3] - bbox[1]
     mask_w = bbox[2] - bbox[0]
     
+    # MOVE LOGIC FOR Y-AXIS PANNING (0=Center, 1=Top, 2=Bottom)
     if crop_state == 1:
         v_center = 0.0 
     elif crop_state == 2:
@@ -134,6 +137,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     else:
         v_center = 0.5 
 
+    # FITS POSTER EXACTLY IN HEXAGON WITHOUT SIDE BARS
     fitted = ImageOps.fit(anime_img, (mask_w, mask_h), method=Image.Resampling.LANCZOS, centering=(0.5, v_center))
     anime_artwork.paste(fitted, (bbox[0], bbox[1]))
 
@@ -145,6 +149,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     draw = ImageDraw.Draw(final_img)
 
+    # LOGO
     logo_img = None
     if logo_url:
         try:
@@ -166,8 +171,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         synopsis = apply_small_caps(synopsis)
         username = apply_small_caps(username)
 
-    # If fallback happens, default font size is 10px which is unreadable.
-    # So we force sizes even if we have to use default (though default ignores size, it's safer).
+    # SECURE FONT LOADING
     try:
         font_main_white = ImageFont.truetype(FONT_TITLE_WHITE, 85) 
         font_colored_title = ImageFont.truetype(FONT_TITLE_COLORED, 65)
@@ -177,17 +181,22 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     except:
         font_main_white = font_genres = font_synopsis = font_brand = font_colored_title = ImageFont.load_default()
 
+    # ==========================================
     # TITLE SHORTENER & S2 REPLACER
+    # ==========================================
     title = title.upper()
     title = re.sub(r'SEASON\s+(\d+)', r'S\1', title) # "SEASON 2" becomes "S2"
     
     wrapped_title = textwrap.fill(title, width=17) 
     title_lines = wrapped_title.split('\n')
     
-    # 2-Line Limit Rule!
+    # Limit to 2 Lines to prevent overlap!
     if len(title_lines) > 2:
         title_lines = title_lines[:2]
-        title_lines[1] = title_lines[1][:14] + "..." # Truncate 2nd line properly
+        if len(title_lines[1]) > 14:
+            title_lines[1] = title_lines[1][:14] + "..."
+        else:
+            title_lines[1] = title_lines[1] + "..."
 
     x_offset = 80
     y_dynamic_offset = 280
