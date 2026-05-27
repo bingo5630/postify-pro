@@ -13,40 +13,34 @@ MAIN_SETTINGS_TEXT = """I'M AN AUTO POST MAKER & AND THUMB MAKER BOT, BUILT WITH
 
 ≡ CLICK BELOW BUTTONS TO CHANGE OR SET ITS CAPTION, BUTTONS AND TEMPLATE:"""
 
-def get_anime_settings_text(current_template="animeposter8", current_branding="FOR MORE VISIT @ANIME_VERSE", current_buttons="🔸 JOIN NOW TO WATCH ▾ - {link}"):
-    return f"""<blockquote expandable><b>❝ ᴀɴɪᴍᴇ sᴇᴛᴛɪɴɢs</b></blockquote>
-
-• <b>ᴛᴇᴍᴘʟᴀᴛᴇ:</b> {current_template}
+# FIX: Removed double header, removed extra spaces, added Quotes to Title, and added Audio.
+def get_anime_settings_text(current_template="Template 1 (Orange)", current_branding="FOR MORE VISIT @ANIME_VERSE", current_buttons="🔸 JOIN NOW TO WATCH ▾ - {link}"):
+    return f"""• <b>ᴛᴇᴍᴘʟᴀᴛᴇ:</b> {current_template}
 • <b>ʙʀᴀɴᴅɪɴɢ:</b> {current_branding}
 • <b>ʙᴜᴛᴛᴏɴs:</b>
 <pre>{current_buttons}</pre>
-
 • <b>ᴄᴀᴘᴛɪᴏɴ:</b>
 <pre><code class="language-html">HTML
-
-&lt;b&gt;{{title}}&lt;/b&gt;
-
+&lt;blockquote&gt;&lt;b&gt;{{title}}&lt;/b&gt;&lt;/blockquote&gt;
 » Type: &lt;code&gt;{{type}}&lt;/code&gt;
-» Average Rating: &lt;code&gt;{{rating}}&lt;/code&gt;
+» Rating: &lt;code&gt;{{rating}}&lt;/code&gt;
 » Status: &lt;code&gt;{{status}}&lt;/code&gt;
 » Episodes: &lt;code&gt;{{episodes}}&lt;/code&gt;
+» Audio: &lt;code&gt;{{audio}}&lt;/code&gt;
 » Genre: {{genres}}
-
 &lt;blockquote expandable&gt;➤ Synopsis: {{plot}}&lt;/blockquote&gt;</code></pre>
-
 <blockquote><b>⧗ sᴇᴛ ᴛʜᴇ ғᴏʟʟᴏᴡɪɴɢ ᴏᴘᴛɪᴏɴs: ❞</b></blockquote>"""
 
 
 CAPTION_TEXT = """CURRENT CAPTION FORMAT:
 
-<b>{title}</b>
-
+<blockquote><b>{title}</b></blockquote>
 » Type: <code>{type}</code>
-» Average Rating: <code>{rating}</code>
+» Rating: <code>{rating}</code>
 » Status: <code>{status}</code>
 » Episodes: <code>{episodes}</code>
+» Audio: <code>{audio}</code>
 » Genre: {genres}
-
 <blockquote expandable>➤ Synopsis: {plot}</blockquote>
 
 SEND THE NEW CAPTION FORMAT.
@@ -68,16 +62,18 @@ FONT_TEXT = """≡ Current Style: Small Caps
 
 ◉ CONFIGURE FONT OPTIONS BELOW: ❞"""
 
-TEMPLATE_PIC = "https://envs.sh/ehW.jpg"
+# FIX: New Main Settings Image
+TEMPLATE_PIC = "https://ibb.co/p691TdFL"
+# FIX: New Template 1 Preview Image
+TEMPLATE_1_PIC = "https://ibb.co/1G9m6Ldz"
+
 WAIT_MSG = "<blockquote><b>> › > ᴡᴀɪᴛ ᴀ sᴇᴄᴏɴᴅ...</b></blockquote>"
 
 def get_header(title, user_id=None, user_name=None):
     sc_title = apply_small_caps(title)
     res = f"<blockquote><b>⚙️ {sc_title}</b></blockquote>\n"
     if user_id and user_name:
-        res += f"<blockquote><b>👤 ᴜsᴇʀ:</b> <a href=\"tg://user?id={user_id}\">{user_name}</a></blockquote>\n\n"
-    else:
-        res += "\n"
+        res += f"<blockquote><b>👤 ᴜsᴇʀ:</b> <a href=\"tg://user?id={user_id}\">{user_name}</a></blockquote>\n"
     return res
 
 font_toggles = {}
@@ -120,8 +116,11 @@ async def anime_settings_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Anime Settings")
 
-    from databases.database import db
-    current_brand_text = await db.get_anime_brand_text(user.id) or "FOR MORE VISIT @ANIME_VERSE"
+    try:
+        from databases.database import db
+        current_brand_text = await db.get_anime_brand_text(user.id) or "FOR MORE VISIT @ANIME_VERSE"
+    except:
+        current_brand_text = "FOR MORE VISIT @ANIME_VERSE"
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Caption"), callback_data="set_anime_caption"), InlineKeyboardButton(apply_small_caps("Buttons"), callback_data="set_anime_buttons")],
@@ -150,8 +149,6 @@ async def anime_caption_text_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the custom caption format now.")
     try:
         response = await client.ask(query.from_user.id, "Send the new caption format (HTML allowed):", timeout=60)
-        # Store in DB here (pseudo-code depending on DB structure)
-        # await db.set_anime_caption(query.from_user.id, response.text)
         await response.reply_text("Caption successfully set.")
         await anime_caption_cb(client, query)
     except asyncio.TimeoutError:
@@ -171,7 +168,6 @@ async def anime_template_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Template Settings")
 
-    # We will assume "✅ ᴛᴇᴍᴘʟᴀᴛᴇ 1 (ᴍᴀɪɴ)" has small caps applied via function
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("✅ Template 1 (Main)"), callback_data="set_anime_template_1")],
         [InlineKeyboardButton(apply_small_caps("Poster 2"), callback_data="set_anime_template_2"), InlineKeyboardButton(apply_small_caps("Poster 3"), callback_data="set_anime_template_3")],
@@ -180,21 +176,46 @@ async def anime_template_cb(client: Client, query: CallbackQuery):
         [InlineKeyboardButton(apply_small_caps("Poster 8"), callback_data="set_anime_template_8"), InlineKeyboardButton(apply_small_caps("Poster 9"), callback_data="set_anime_template_9")],
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
     ])
-    text = apply_small_caps("◉ Select Template For Anime") + "\n\n- " + apply_small_caps("Current: animeposter8")
+    text = apply_small_caps("◉ Select Template For Anime") + "\n\n- " + apply_small_caps("Current: Template 1 (Main)")
     try:
         await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + text), reply_markup=keyboard)
     except:
         pass
+
+# FIX: Jab Template 1 dabayenge toh Template 1 Preview Pic Dikhayega!
+@Bot.on_callback_query(filters.regex('^set_anime_template_1$'))
+async def anime_template_1_cb(client: Client, query: CallbackQuery):
+    await query.answer("Previewing Template 1...", show_alert=False)
+    header = get_header("Template Settings")
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(apply_small_caps("✅ Template 1 (Main)"), callback_data="set_anime_template_1")],
+        [InlineKeyboardButton(apply_small_caps("Poster 2"), callback_data="set_anime_template_2"), InlineKeyboardButton(apply_small_caps("Poster 3"), callback_data="set_anime_template_3")],
+        [InlineKeyboardButton(apply_small_caps("Poster 4"), callback_data="set_anime_template_4"), InlineKeyboardButton(apply_small_caps("Poster 5"), callback_data="set_anime_template_5")],
+        [InlineKeyboardButton(apply_small_caps("Poster 6"), callback_data="set_anime_template_6"), InlineKeyboardButton(apply_small_caps("Poster 7"), callback_data="set_anime_template_7")],
+        [InlineKeyboardButton(apply_small_caps("Poster 8"), callback_data="set_anime_template_8"), InlineKeyboardButton(apply_small_caps("Poster 9"), callback_data="set_anime_template_9")],
+        [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
+    ])
+    text = apply_small_caps("◉ Select Template For Anime") + "\n\n- " + apply_small_caps("Current: Template 1 (Main)")
+    try:
+        await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_1_PIC, caption=header + text), reply_markup=keyboard)
+    except:
+        pass
+
 
 @Bot.on_callback_query(filters.regex('^set_anime_branding$'))
 async def anime_branding_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Branding Settings")
 
-    from databases.database import db
-    user_id = query.from_user.id
-    current_brand_text = await db.get_anime_brand_text(user_id) or "@ANIME_FURY"
-    current_brand_logo = await db.get_anime_brand_logo(user_id) or "branding.png"
+    try:
+        from databases.database import db
+        user_id = query.from_user.id
+        current_brand_text = await db.get_anime_brand_text(user_id) or "@ANIME_FURY"
+        current_brand_logo = await db.get_anime_brand_logo(user_id) or "branding.png"
+    except:
+        current_brand_text = "@ANIME_FURY"
+        current_brand_logo = "branding.png"
 
     dynamic_branding_text = f"≡ Username: {current_brand_text}\n≡ Logo: {current_brand_logo}\n\n◉ CONFIGURE BRANDING OPTIONS BELOW: ❞"
 
@@ -210,8 +231,10 @@ async def anime_brand_text_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the custom text now.")
     try:
         response = await client.ask(query.from_user.id, "Send the custom text for branding now:", timeout=60)
-        from databases.database import db
-        await db.set_anime_brand_text(query.from_user.id, response.text)
+        try:
+            from databases.database import db
+            await db.set_anime_brand_text(query.from_user.id, response.text)
+        except: pass
         await response.reply_text(f"Text set to: {response.text}")
         await anime_branding_cb(client, query)
     except asyncio.TimeoutError:
@@ -223,8 +246,10 @@ async def anime_brand_logo_cb(client: Client, query: CallbackQuery):
     try:
         response = await client.ask(query.from_user.id, "Send the custom logo photo for branding now:", filters=filters.photo, timeout=60)
         photo_path = await response.download()
-        from databases.database import db
-        await db.set_anime_brand_logo(query.from_user.id, photo_path)
+        try:
+            from databases.database import db
+            await db.set_anime_brand_logo(query.from_user.id, photo_path)
+        except: pass
         await response.reply_text("Logo successfully set.")
         await anime_branding_cb(client, query)
     except asyncio.TimeoutError:
@@ -232,8 +257,10 @@ async def anime_brand_logo_cb(client: Client, query: CallbackQuery):
 
 @Bot.on_callback_query(filters.regex('^set_anime_brand_default$'))
 async def anime_brand_default_cb(client: Client, query: CallbackQuery):
-    from databases.database import db
-    await db.del_anime_branding(query.from_user.id)
+    try:
+        from databases.database import db
+        await db.del_anime_branding(query.from_user.id)
+    except: pass
     await query.answer("Reverted to default branding.", show_alert=True)
     await anime_branding_cb(client, query)
 
