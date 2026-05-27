@@ -47,11 +47,28 @@ CAPTION_TEXT = """CURRENT CAPTION FORMAT:
 SEND THE NEW CAPTION FORMAT.
 Available placeholders: {title}, {year}, {season}, {episodes}, {audio}, {genres}, {rating}, {status}, {plot}, {synopsis}."""
 
-BUTTONS_TEXT = """Auto Buttons syntax:
+def get_anime_buttons_text(current_buttons=""):
+    if not current_buttons:
+        current_buttons = "Join - {link} && Group - https://t.me/posterprobot\nFor More - https://t.me/posterprobot"
+    return f"""<blockquote><b>⧗ Sᴇᴛ Bᴜᴛᴛᴏɴs ғᴏʀ ANIME</b>
+Cᴜʀʀᴇɴᴛ Bᴜᴛᴛᴏɴs:
 
-Single Button: Button Name - {link}
-Multiple Buttons: Button 1 - {link} && Button 2 - {link}
-Colored Buttons: #g Green - {link}, #r Red - {link}, #p Primary - {link}."""
+<code>{current_buttons}</code>
+
+Sᴇɴᴅ ᴛʜᴇ ɴᴇᴡ ʙᴜᴛᴛᴏɴ ᴄᴏɴғɪɢ.
+Fᴏʀᴍᴀᴛ:
+
+<code>Button Text - {{link}}</code>
+
+Mᴜʟᴛɪᴘʟᴇ Bᴜᴛᴛᴏɴs:
+
+<code>Join - {{link}} && Group - https://t.me/posterprobot</code>
+
+Cᴏʟᴏʀᴇᴅ Bᴜᴛᴛᴏɴs:
+
+<code>#g Gʀᴇᴇɴ - {{link}}</code>
+<code>#r Rᴇᴅ - {{link}}</code>
+<code>#p Pʀɪᴍᴀʀʏ - {{link}}</code></blockquote>"""
 
 BRANDING_TEXT = """≡ Username: @ANIME_FURY
 ≡ Logo: branding.png
@@ -159,10 +176,31 @@ async def anime_caption_text_cb(client: Client, query: CallbackQuery):
 async def anime_buttons_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Buttons Settings")
+    try:
+        from databases.database import db
+        current_buttons = await db.get_anime_button_config(query.from_user.id)
+    except:
+        current_buttons = None
+
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
+        [InlineKeyboardButton("𝗦𝗘𝗧", callback_data="set_anime_buttons_text"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="set_anime")],
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close")]
     ])
-    await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + BUTTONS_TEXT), reply_markup=keyboard)
+    await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + get_anime_buttons_text(current_buttons)), reply_markup=keyboard)
+
+@Bot.on_callback_query(filters.regex('^set_anime_buttons_text$'))
+async def anime_buttons_text_cb(client: Client, query: CallbackQuery):
+    await query.answer("Please send the new button config now.")
+    try:
+        response = await client.ask(query.from_user.id, "Send the new button config format:", timeout=60)
+        try:
+            from databases.database import db
+            await db.set_anime_button_config(query.from_user.id, response.text)
+        except: pass
+        await response.reply_text("✅ ʙᴜᴛᴛᴏɴs ᴄᴏɴғɪɢ sᴀᴠᴇᴅ ғᴏʀ ᴀɴɪᴍᴇ.")
+        await anime_buttons_cb(client, query)
+    except asyncio.TimeoutError:
+        await client.send_message(query.from_user.id, "Timeout occurred.")
 
 @Bot.on_callback_query(filters.regex('^set_anime_template$'))
 async def anime_template_cb(client: Client, query: CallbackQuery):

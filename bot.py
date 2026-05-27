@@ -6,6 +6,7 @@ from plugins import web_server
 import asyncio
 import pyromod.listen
 from pyrogram import Client
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pyrogram.enums import ParseMode
 import sys
 from datetime import datetime
@@ -25,9 +26,11 @@ class Bot(Client):
             bot_token=TG_BOT_TOKEN
         )
         self.LOGGER = LOGGER
+        self.scheduler = AsyncIOScheduler()
 
     async def start(self):
         await super().start()
+        self.scheduler.start()
         bot_info = await self.get_me()
         self.name = bot_info.first_name
         self.username = bot_info.username

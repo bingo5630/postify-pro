@@ -608,4 +608,23 @@ class Rohit:
     async def del_anime_branding(self, user_id: int):
         await self.user_data.update_one({'_id': user_id}, {'$unset': {'anime_brand_text': '', 'anime_brand_logo': ''}})
 
+    async def get_anime_button_config(self, user_id: int):
+        user = await self.user_data.find_one({'_id': user_id})
+        return user.get('anime_button_config', None) if user else None
+
+    async def set_anime_button_config(self, user_id: int, config: str):
+        await self.user_data.update_one({'_id': user_id}, {'$set': {'anime_button_config': config}}, upsert=True)
+
+    async def add_user_channel(self, user_id: int, channel_id: int, channel_title: str):
+        channel_info = {'id': channel_id, 'title': channel_title}
+        await self.user_data.update_one(
+            {'_id': user_id},
+            {'$addToSet': {'user_channels': channel_info}},
+            upsert=True
+        )
+
+    async def get_user_channels(self, user_id: int):
+        user = await self.user_data.find_one({'_id': user_id})
+        return user.get('user_channels', []) if user else []
+
 db = Rohit(DB_URL, DB_NAME)

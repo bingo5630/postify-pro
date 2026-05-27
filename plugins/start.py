@@ -31,6 +31,103 @@ from pytz import timezone
 # Track (user_id, link_param) pairs who already saw /byt forcesub for a specific link
 byt_fsub_seen = set()
 
+# Dictionary to track which users are in "add channel state"
+add_channel_state = {}
+
+@Bot.on_callback_query(filters.regex('^add_channel_req$'))
+async def add_channel_req_cb(client: Client, query: CallbackQuery):
+    user_id = query.from_user.id
+    add_channel_state[user_id] = True
+
+    msg_text = """<blockquote><b>➕ Add Channel</b>
+
+To add a channel, you have two options:
+
+<b>1. Automatic Detection:</b>
+• Add the bot to your channel as an administrator
+• The bot will automatically detect and add the channel
+
+<b>2. Manual Addition:</b>
+• Use the command: <code>/addchannel [Channel ID/Username if public]</code>
+• Or reply to a forwarded message from the channel with <code>/addchannel</code>
+
+Note: You must be an administrator in the channel for the bot to work.</blockquote>"""
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="cancel_add_channel")]
+    ])
+
+    if query.message.photo:
+        await query.message.delete()
+        await client.send_message(chat_id=user_id, text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+    else:
+        await query.edit_message_text(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+
+@Bot.on_callback_query(filters.regex('^cancel_add_channel$'))
+async def cancel_add_channel_cb(client: Client, query: CallbackQuery):
+    user_id = query.from_user.id
+    if user_id in add_channel_state:
+        del add_channel_state[user_id]
+    await query.message.delete()
+    await query.answer("Add channel process canceled.")
+
+from pyrogram.types import ChatMemberUpdated
+from pyrogram.enums import ChatMemberStatus
+
+@Bot.on_message(filters.command('addchannel') & filters.private)
+async def add_channel_cmd(client: Client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in add_channel_state:
+        return
+
+    chat_id = None
+    if message.reply_to_message and message.reply_to_message.forward_from_chat:
+        chat_id = message.reply_to_message.forward_from_chat.id
+    elif len(message.command) > 1:
+        target = message.command[1]
+        try:
+            chat_id = int(target)
+        except ValueError:
+            chat_id = target
+
+    if not chat_id:
+        await message.reply_text("Please provide a valid channel ID/username or reply to a forwarded message from the channel.")
+        return
+
+    try:
+        chat = await client.get_chat(chat_id)
+        member = await client.get_chat_member(chat.id, user_id)
+        if member.status not in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]:
+            await message.reply_text("You must be an administrator in the channel.")
+            return
+
+        bot_member = await client.get_chat_member(chat.id, client.me.id)
+        if bot_member.status != ChatMemberStatus.ADMINISTRATOR:
+            await message.reply_text("The bot must be an administrator in the channel.")
+            return
+
+        await db.add_user_channel(user_id, chat.id, chat.title)
+        del add_channel_state[user_id]
+        await message.reply_text(f"Successfully added channel: {chat.title}")
+    except Exception as e:
+        await message.reply_text(f"Failed to add channel: {e}")
+
+@Bot.on_chat_member_updated()
+async def chat_member_updated_handler(client: Client, update: ChatMemberUpdated):
+    if update.new_chat_member and update.new_chat_member.user.id == client.me.id:
+        if update.new_chat_member.status == ChatMemberStatus.ADMINISTRATOR:
+            user_id = update.from_user.id
+            if user_id in add_channel_state:
+                chat = update.chat
+                try:
+                    await db.add_user_channel(user_id, chat.id, chat.title)
+                    del add_channel_state[user_id]
+                    msg_text = """<blockquote>🍂 ʏᴏᴜ ʜᴀᴠᴇ ᴀᴅᴅᴇᴅ ᴛʜᴇ ʙᴏᴛ ᴛᴏ ᴛʜᴇ ᴄʜᴀɴɴᴇʟ ..
+ɴᴏᴡ ʏᴏᴜ ᴄᴀɴ ᴜsᴇ ᴛʜᴇ ғᴜɴᴄᴛɪᴏɴs ᴏғ ᴛʜᴇ ʙᴏᴛ ɪɴ ᴛʜᴀᴛ ᴄʜᴀɴɴᴇʟ‼️</blockquote>"""
+                    await client.send_message(user_id, msg_text, parse_mode=ParseMode.HTML)
+                except Exception as e:
+                    await client.send_message(user_id, f"Error adding channel: {e}")
+
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
@@ -176,8 +273,8 @@ async def start_command(client: Client, message: Message):
         reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
                     [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
-                     InlineKeyboardButton(' ᴅᴇᴠᴇʟᴏᴘᴇʀ •', url='https://t.me/DoraShin_hlo')],
-                    [InlineKeyboardButton("• ᴏᴜʀ ᴄᴏᴍᴍᴜɴɪᴛʏ •", url='https://t.me/Mugiwaras_Network')],
+                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='setting')],
+                    [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req')],
                 ])
         await message.reply_photo(
             photo = random.choice(PICS),
