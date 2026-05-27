@@ -374,7 +374,15 @@ async def build_final_poster(client, callback_query, user_id):
         custom_text = None
         custom_logo = None
 
-    fallback_name = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
+    if callback_query and callback_query.from_user:
+        fallback_name = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
+    else:
+        try:
+            usr = await client.get_users(user_id)
+            fallback_name = f"@{usr.username}" if usr.username else usr.first_name
+        except Exception:
+            fallback_name = "PosterProBot"
+
     final_username = custom_text if custom_text else fallback_name
 
     poster_buf = await generate_poster(
@@ -674,9 +682,9 @@ async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
 • Press "Pin post" to pin the post at the top of the channel.</blockquote>"""
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧", callback_data="anime_pub_send"), InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧 𝗧𝗢 𝗠𝗢𝗥𝗘 𝗖𝗛𝗔𝗡𝗡𝗘𝗟𝗦", callback_data="anime_pub_more")],
-        [InlineKeyboardButton("𝗦𝗖𝗛𝗘𝗗𝗨𝗟𝗘 𝗦𝗘𝗡𝗗𝗜𝗡𝗚", callback_data="anime_pub_schedule"), InlineKeyboardButton("𝗣𝗜𝗡 𝗣𝗢𝗦𝗧", callback_data="anime_pub_pin")],
-        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_pub_back"), InlineKeyboardButton("𝗠𝗘𝗡𝗨", callback_data="close_anime_menu")],
+        [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧", callback_data="anime_pub_send"), InlineKeyboardButton("𝗦𝗖𝗛𝗘𝗗𝗨𝗟𝗘", callback_data="anime_pub_schedule")],
+        [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧 𝗧𝗢 𝗠𝗢𝗥𝗘 𝗖𝗛𝗔𝗡𝗡𝗘𝗟𝗦", callback_data="anime_pub_more")],
+        [InlineKeyboardButton("𝗣𝗜𝗡 𝗣𝗢𝗦𝗧", callback_data="anime_pub_pin"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_pub_back")],
         [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
     ])
 

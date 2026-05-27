@@ -81,7 +81,13 @@ async def add_channel_cmd(client: Client, message: Message):
         return
 
     chat_id = None
-    if message.reply_to_message and message.reply_to_message.forward_from_chat:
+    if message.reply_to_message and getattr(message.reply_to_message, "forward_origin", None):
+        origin = message.reply_to_message.forward_origin
+        if hasattr(origin, "chat") and origin.chat:
+            chat_id = origin.chat.id
+        elif hasattr(origin, "sender_chat") and origin.sender_chat:
+            chat_id = origin.sender_chat.id
+    elif message.reply_to_message and message.reply_to_message.forward_from_chat:
         chat_id = message.reply_to_message.forward_from_chat.id
     elif len(message.command) > 1:
         target = message.command[1]
