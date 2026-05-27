@@ -2,6 +2,7 @@ import os
 import aiohttp
 import asyncio
 import re
+import urllib.request
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageChops, ImageEnhance
 import textwrap
 import io
@@ -9,11 +10,24 @@ import io
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 
+# ==========================================
+# AUTO FONT DOWNLOADER (Agar font nahi hai toh khud layega)
+# ==========================================
+os.makedirs(FONTS_DIR, exist_ok=True)
+def download_font(url, filename):
+    filepath = os.path.join(FONTS_DIR, filename)
+    if not os.path.exists(filepath):
+        try:
+            urllib.request.urlretrieve(url, filepath)
+        except: pass
+    return filepath
+
+FONT_TITLE_WHITE = download_font("https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf", "Roboto-Bold.ttf")
+FONT_TITLE_COLORED = download_font("https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Black.ttf", "Roboto-Black.ttf")
+FONT_BODY = download_font("https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Medium.ttf", "Roboto-Medium.ttf")
+
 TEMPLATE_PATH = os.path.join(ASSETS_DIR, "template.png")
 HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
-
-FONT_TITLE = os.path.join(FONTS_DIR, "Montserrat-Black.ttf")
-FONT_BODY = os.path.join(FONTS_DIR, "Roboto-Medium.ttf")
 
 def clean_logo(img):
     img = img.convert("RGBA")
@@ -43,7 +57,6 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-# Yahan par template_url aur color_hex parameters set kiye gaye hain
 async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_url=None, color_hex="#FF6B00"):
 
     if custom_image_path:
@@ -59,14 +72,10 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     else:
         anime_img = Image.new('RGBA', (1920, 1080), (100, 100, 100, 255))
 
-    # ==========================================
-    # SMART TEMPLATE LOADER (ImgBB Website Links Handle Karega)
-    # ==========================================
     base_template = None
     if template_url and template_url.startswith("http"):
         try:
             async with aiohttp.ClientSession() as session:
-                # Agar user ne ImgBB ka webpage link de diya hai, toh image link extract karo
                 if "ibb.co" in template_url and not template_url.endswith(('.png', '.jpg', '.jpeg')):
                     async with session.get(template_url) as html_resp:
                         if html_resp.status == 200:
@@ -100,13 +109,11 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     punched_alpha = ImageChops.darker(a, inverse_mask) 
     base_template.putalpha(punched_alpha)
     
-    # 1. 1920x1080 ka heavily blurred background
     blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
     blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
     blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
     anime_artwork = blurred_bg.convert('RGBA')
     
-    # 2. Hexagon mask ka Bounding Box nikalo
     bbox = strict_mask.getbbox()
     if not bbox:
         bbox = (0, 0, 1920, 1080)
@@ -114,24 +121,15 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     mask_h = bbox[3] - bbox[1]
     mask_w = bbox[2] - bbox[0]
     
-    # 3. Poster ko hexagon ki height ke barabar resize karo (bina zoom kiye)
-    poster_h = mask_h
-    poster_w = int(anime_img.width * (mask_h / anime_img.height))
-    fitted = anime_img.resize((poster_w, poster_h), Image.Resampling.LANCZOS)
-    
-    # 4. MOVE logic (0=Center, 1=Left, 2=Right)
-    mask_center_x = bbox[0] + (mask_w // 2)
-    
     if crop_state == 1:
-        offset_x = bbox[0] # Left side of mask
+        v_center = 0.0 
     elif crop_state == 2:
-        offset_x = bbox[2] - poster_w # Right side of mask
+        v_center = 1.0 
     else:
-        offset_x = mask_center_x - (poster_w // 2) # Exact Center of mask
-        
-    offset_y = bbox[1]
+        v_center = 0.5 
 
-    anime_artwork.paste(fitted, (offset_x, offset_y), fitted if fitted.mode == 'RGBA' else None)
+    fitted = ImageOps.fit(anime_img, (mask_w, mask_h), method=Image.Resampling.LANCZOS, centering=(0.5, v_center))
+    anime_artwork.paste(fitted, (bbox[0], bbox[1]))
 
     anime_artwork = enhance_image(anime_artwork)
     
@@ -163,33 +161,43 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         username = apply_small_caps(username)
 
     try:
-        font_title = ImageFont.truetype(FONT_TITLE, 85)
+        font_main_white = ImageFont.truetype(FONT_TITLE_WHITE, 85) 
+        font_colored_title = ImageFont.truetype(FONT_TITLE_COLORED, 65)
         font_genres = ImageFont.truetype(FONT_BODY, 35)
         font_synopsis = ImageFont.truetype(FONT_BODY, 30)
         font_brand = ImageFont.truetype(FONT_BODY, 40)
-        font_title_color = ImageFont.truetype(FONT_TITLE, 65)
     except:
-        font_title = font_genres = font_synopsis = font_brand = font_title_color = ImageFont.load_default()
+        font_main_white = font_genres = font_synopsis = font_brand = font_colored_title = ImageFont.load_default()
 
-    wrapped_title = textwrap.fill(title.upper(), width=17) 
+    # ==========================================
+    # FIX: TITLE SHORTENER & S2 REPLACER
+    # ==========================================
+    title = title.upper()
+    title = re.sub(r'SEASON\s+(\d+)', r'S\1', title) # "SEASON 2" becomes "S2"
+    
+    wrapped_title = textwrap.fill(title, width=17) 
     title_lines = wrapped_title.split('\n')
+    
+    # 2-Line Limit Rule!
+    if len(title_lines) > 2:
+        title_lines = title_lines[:2]
+        title_lines[1] = title_lines[1][:14] + "..." # Truncate 2nd line properly
 
     x_offset = 80
     y_dynamic_offset = 280
 
     for i, line in enumerate(title_lines):
         if i == 0:
-            draw.text((x_offset, y_dynamic_offset), line, font=font_title, fill="white")
+            draw.text((x_offset, y_dynamic_offset), line, font=font_main_white, fill="white")
             y_dynamic_offset += 100 
         else:
-            draw.text((x_offset, y_dynamic_offset), line, font=font_title_color, fill=color_hex)
+            draw.text((x_offset, y_dynamic_offset), line, font=font_colored_title, fill=color_hex)
             y_dynamic_offset += 75 
 
     y_dynamic_offset += 20
     draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill=color_hex)
 
     synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) 
-    
     if len(synopsis) > synopsis_dynamic_max_chars:
         synopsis = synopsis[:synopsis_dynamic_max_chars].rsplit(' ', 1)[0] + "...read more"
     wrapped_synopsis = textwrap.fill(synopsis, width=45)
