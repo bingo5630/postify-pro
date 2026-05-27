@@ -20,8 +20,7 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 # 11 COLOUR TEMPLATES & HEX CODES
 # ==========================================
 COLORS = [
-    # Orange Generation ke liye local transparent template hi rahega
-    {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"}, 
+    {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
     {"name": "GREEN", "hex": "#28a745", "url": "https://ibb.co/G4GhnCsZ"},
     {"name": "TURQUOISE", "hex": "#40E0D0", "url": "https://ibb.co/1fVPgwqd"},
     {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://ibb.co/yTznRcZ"},
@@ -36,7 +35,6 @@ COLORS = [
 
 async def fetch_extra_images(title_eng, title_rom, mal_id=None):
     extra_images = []
-    
     if mal_id:
         try:
             async with aiohttp.ClientSession() as session:
@@ -60,7 +58,6 @@ async def fetch_extra_images(title_eng, title_rom, mal_id=None):
             search_titles.append(t.split()[0].strip()) 
                 
         search_titles = list(dict.fromkeys(search_titles))
-        
         try:
             async with aiohttp.ClientSession() as session:
                 tv_id = None
@@ -72,9 +69,7 @@ async def fetch_extra_images(title_eng, title_rom, mal_id=None):
                             data = await resp.json()
                             if data and isinstance(data, list) and len(data) > 0:
                                 tv_id = data[0].get('tvdb_id')
-                                if tv_id:
-                                    break 
-                
+                                if tv_id: break 
                 if tv_id:
                     img_url = f"https://webservice.fanart.tv/v3/tv/{tv_id}?api_key={FANART_API_KEY}"
                     async with session.get(img_url) as img_resp:
@@ -85,7 +80,6 @@ async def fetch_extra_images(title_eng, title_rom, mal_id=None):
                                     extra_images.append(item['url'])
         except Exception:
             pass
-            
     return extra_images
 
 async def fetch_anime_search(query, source="anilist"):
@@ -134,7 +128,6 @@ async def fetch_anime_search(query, source="anilist"):
     }
     '''
     variables = {"search": query}
-
     async with aiohttp.ClientSession() as session:
         async with session.post(url, json={'query': query_graphql, 'variables': variables}) as resp:
             data = await resp.json()
@@ -349,7 +342,6 @@ async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
     
-    # Space formatting for genres
     genres = "  ".join(anime.get('genres', [])[:3])
     
     synopsis = anime.get('description', '')
@@ -406,9 +398,7 @@ async def build_final_poster(client, callback_query, user_id):
         caption_template = await db.get_caption(user_id)
     except: caption_template = None
 
-    # ==========================================
-    # CLEAN CAPTION WITH QUOTES & AUDIO
-    # ==========================================
+    # NO EXTRA LINES IN CAPTION FORMAT
     if not caption_template:
         caption_template = "<blockquote><b>{title}</b></blockquote>\n» Type: <code>{type}</code>\n» Rating: <code>{rating}</code>\n» Status: <code>{status}</code>\n» Episodes: <code>{episodes}</code>\n» Audio: <code>{audio}</code>\n» Genre: {genres}\n<blockquote expandable>➤ Synopsis: {plot}</blockquote>"
 
@@ -434,11 +424,10 @@ async def build_final_poster(client, callback_query, user_id):
     return poster_buf, caption
 
 # ==========================================
-# FINAL BUTTON LAYOUT
+# BUTTON LAYOUT (MOVE LEFT, NEXT RIGHT, COLOR BELOW, CANCEL LEFT, DONE RIGHT)
 # ==========================================
 def get_final_keyboard(color_state):
     color_name = COLORS[color_state]['name']
-    
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗠𝗢𝗩𝗘", callback_data="anime_final_move"),
          InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
@@ -496,6 +485,7 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
 
+    # Move handles Up/Down (Center, Top, Bottom)
     user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
     states = ["Center Focus", "Top Focus (Face)", "Bottom Focus"]
     await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
