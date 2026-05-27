@@ -16,9 +16,6 @@ user_data = {}
 
 FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
-# ==========================================
-# 11 COLOUR TEMPLATES & HEX CODES
-# ==========================================
 COLORS = [
     {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
     {"name": "GREEN", "hex": "#28a745", "url": "https://ibb.co/G4GhnCsZ"},
@@ -398,7 +395,6 @@ async def build_final_poster(client, callback_query, user_id):
         caption_template = await db.get_caption(user_id)
     except: caption_template = None
 
-    # NO EXTRA LINES IN CAPTION FORMAT
     if not caption_template:
         caption_template = "<blockquote><b>{title}</b></blockquote>\n» Type: <code>{type}</code>\n» Rating: <code>{rating}</code>\n» Status: <code>{status}</code>\n» Episodes: <code>{episodes}</code>\n» Audio: <code>{audio}</code>\n» Genre: {genres}\n<blockquote expandable>➤ Synopsis: {plot}</blockquote>"
 
@@ -423,9 +419,6 @@ async def build_final_poster(client, callback_query, user_id):
 
     return poster_buf, caption
 
-# ==========================================
-# BUTTON LAYOUT (MOVE LEFT, NEXT RIGHT, COLOR BELOW, CANCEL LEFT, DONE RIGHT)
-# ==========================================
 def get_final_keyboard(color_state):
     color_name = COLORS[color_state]['name']
     return InlineKeyboardMarkup([
@@ -485,7 +478,6 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
 
-    # Move handles Up/Down (Center, Top, Bottom)
     user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
     states = ["Center Focus", "Top Focus (Face)", "Bottom Focus"]
     await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
@@ -553,7 +545,6 @@ async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     await callback_query.answer("Poster Done! Safe to share.")
     await callback_query.message.delete()
-    
     if user_id in user_data:
         del user_data[user_id]
     raise StopPropagation
