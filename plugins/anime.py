@@ -20,15 +20,16 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 # 11 COLOUR TEMPLATES & HEX CODES
 # ==========================================
 COLORS = [
-    {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
+    # Orange Generation ke liye local transparent template hi rahega
+    {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"}, 
     {"name": "GREEN", "hex": "#28a745", "url": "https://ibb.co/G4GhnCsZ"},
-    {"name": "NAVY GREEN", "hex": "#4A5D23", "url": "https://ibb.co/1fVPgwqd"},
+    {"name": "TURQUOISE", "hex": "#40E0D0", "url": "https://ibb.co/1fVPgwqd"},
     {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://ibb.co/yTznRcZ"},
     {"name": "PINK", "hex": "#FF69B4", "url": "https://ibb.co/b5DVk3LR"},
     {"name": "BLUE", "hex": "#007BFF", "url": "https://ibb.co/pjz3Ts34"},
     {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://ibb.co/C3jnf6sr"},
     {"name": "RED", "hex": "#DC143C", "url": "https://ibb.co/9m1V2CPM"},
-    {"name": "TEAL BLUE", "hex": "#008080", "url": "https://ibb.co/LXD0djss"},
+    {"name": "TEAL BLUE", "hex": "#20B2AA", "url": "https://ibb.co/LXD0djss"},
     {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://ibb.co/FLqd5jt4"},
     {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://ibb.co/yc8zYYYt"}
 ]
@@ -348,6 +349,7 @@ async def build_final_poster(client, callback_query, user_id):
     anime = user_data[user_id]['selected_anime']
     title = anime['title']['english'] or anime['title']['romaji']
     
+    # Space formatting for genres
     genres = "  ".join(anime.get('genres', [])[:3])
     
     synopsis = anime.get('description', '')
@@ -386,7 +388,6 @@ async def build_final_poster(client, callback_query, user_id):
     fallback_name = f"@{callback_query.from_user.username}" if callback_query.from_user.username else callback_query.from_user.first_name
     final_username = custom_text if custom_text else fallback_name
 
-    # Passed correctly here to thumbnail_maker.py
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
         custom_image_path=custom_image_path,
@@ -405,8 +406,11 @@ async def build_final_poster(client, callback_query, user_id):
         caption_template = await db.get_caption(user_id)
     except: caption_template = None
 
+    # ==========================================
+    # CLEAN CAPTION WITH QUOTES & AUDIO
+    # ==========================================
     if not caption_template:
-        caption_template = "<b>{title}</b>\n\n» Type: <code>{type}</code>\n» Rating: <code>{rating}</code>\n» Status: <code>{status}</code>\n» Episodes: <code>{episodes}</code>\n» Genre: {genres}\n\n<blockquote expandable>➤ Synopsis: {plot}</blockquote>"
+        caption_template = "<blockquote><b>{title}</b></blockquote>\n» Type: <code>{type}</code>\n» Rating: <code>{rating}</code>\n» Status: <code>{status}</code>\n» Episodes: <code>{episodes}</code>\n» Audio: <code>{audio}</code>\n» Genre: {genres}\n<blockquote expandable>➤ Synopsis: {plot}</blockquote>"
 
     anime_type = str(anime.get('format', anime.get('type', 'TV')))
     rating = str(anime.get('averageScore', anime.get('score', 'N/A')))
@@ -425,20 +429,22 @@ async def build_final_poster(client, callback_query, user_id):
     try:
         caption = caption_template.format(title=v_title, type=v_type, rating=v_rating, status=v_status, episodes=v_episodes, genres=v_genres, plot=v_plot, synopsis=v_plot, audio=v_audio, year="N/A", season="N/A")
     except Exception:
-        caption = f"<b>{v_title}</b>\n\n<b>Audio:</b> {v_audio}\n<b>Genres:</b> {v_genres}"
+        caption = f"<blockquote><b>{v_title}</b></blockquote>\n» Audio: <code>{v_audio}</code>\n» Genres: {v_genres}"
 
     return poster_buf, caption
 
+# ==========================================
+# FINAL BUTTON LAYOUT
+# ==========================================
 def get_final_keyboard(color_state):
     color_name = COLORS[color_state]['name']
     
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗠𝗢𝗩𝗘", callback_data="anime_final_move"),
          InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
-        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_final_back"),
-         InlineKeyboardButton(f"🎨 {color_name}", callback_data="anime_final_color")],
-        [InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done"),
-         InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
+        [InlineKeyboardButton(f"🎨 {color_name}", callback_data="anime_final_color")],
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu"),
+         InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done")]
     ])
 
 @Bot.on_callback_query(filters.regex(r"^anime_audio_(.*)"), group=-1)
@@ -484,7 +490,6 @@ async def handle_anime_generate(client: Bot, callback_query: CallbackQuery):
 
     raise StopPropagation
 
-
 @Bot.on_callback_query(filters.regex("^anime_final_move$"), group=-1)
 async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -492,7 +497,7 @@ async def handle_anime_final_move(client: Bot, callback_query: CallbackQuery):
         return await callback_query.answer("Session expired.", show_alert=True)
 
     user_data[user_id]['crop_state'] = (user_data[user_id]['crop_state'] + 1) % 3
-    states = ["Center Focus", "Left Focus", "Right Focus"]
+    states = ["Center Focus", "Top Focus (Face)", "Bottom Focus"]
     await callback_query.answer(f"Position: {states[user_data[user_id]['crop_state']]}", show_alert=False)
 
     try:
@@ -514,26 +519,6 @@ async def handle_anime_final_next(client: Bot, callback_query: CallbackQuery):
 
     user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] + 1) % max(1, len(user_data[user_id]['images']))
     await callback_query.answer("Loading next image...", show_alert=False)
-
-    try:
-        poster_buf, caption = await build_final_poster(client, callback_query, user_id)
-        await client.edit_message_media(
-            chat_id=user_id,
-            message_id=user_data[user_id]['photo_msg_id'],
-            media=InputMediaPhoto(poster_buf, caption=caption, parse_mode=ParseMode.HTML)
-        )
-    except Exception:
-        pass
-    raise StopPropagation
-
-@Bot.on_callback_query(filters.regex("^anime_final_back$"), group=-1)
-async def handle_anime_final_back(client: Bot, callback_query: CallbackQuery):
-    user_id = callback_query.from_user.id
-    if user_id not in user_data:
-        return await callback_query.answer("Session expired.", show_alert=True)
-
-    user_data[user_id]['current_image_idx'] = (user_data[user_id]['current_image_idx'] - 1) % max(1, len(user_data[user_id]['images']))
-    await callback_query.answer("Loading previous image...", show_alert=False)
 
     try:
         poster_buf, caption = await build_final_poster(client, callback_query, user_id)
@@ -581,4 +566,4 @@ async def handle_final_done(client: Bot, callback_query: CallbackQuery):
     
     if user_id in user_data:
         del user_data[user_id]
-    raise StopPropagatio
+    raise StopPropagation
