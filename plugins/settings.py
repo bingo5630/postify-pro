@@ -4,14 +4,15 @@ from bot import Bot
 from plugins.utils import apply_small_caps
 import asyncio
 
-MAIN_SETTINGS_TEXT = """I'M AN AUTO POST MAKER & AND THUMB MAKER BOT, BUILT WITH LOVE.
+# Updated Main Settings Text with Small Caps and Quotes
+MAIN_SETTINGS_TEXT = f"""{apply_small_caps("i'm an auto post maker & thumb maker bot, built with love.")}
 
-❝ IF YOU WERE TO WRITE A STORY WITH ME IN THE LEAD ROLE... IT WOULD CERTAINLY BE A TRAGEDY. ❞
-— KEN KENEKI ❞
+{apply_small_caps("❝ ​❝ I’ll teach you about the world... and how limited your vision really is. ❞")}
+— {apply_small_caps("Gojo")}
 
-✖️ CHOOSE THE CATEGORY FOR WHICH YOU WANNA GET HELP. ASK YOUR DOUBTS AT SUPPORT CHAT
+✖️ {apply_small_caps("choose the category for which you wanna get help.")} {apply_small_caps("ask your doubts at support chat.")}
 
-≡ CLICK BELOW BUTTONS TO CHANGE OR SET ITS CAPTION, BUTTONS AND TEMPLATE:"""
+≡ {apply_small_caps("click below buttons to change or set its caption, buttons and template:")}"""
 
 # FIX: Removed double header, removed extra spaces, added Quotes to Title, and added Audio.
 def get_anime_settings_text(current_template="Template 1 (Orange)", current_branding="FOR MORE VISIT @ANIME_VERSE", current_buttons="🔸 JOIN NOW TO WATCH ▾ - {link}"):
