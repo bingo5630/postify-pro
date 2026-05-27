@@ -11,20 +11,26 @@ ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 
 # ==========================================
-# AUTO FONT DOWNLOADER (Agar font nahi hai toh khud layega)
+# FIX: CORRECT GOOGLE FONTS GITHUB LINKS
 # ==========================================
 os.makedirs(FONTS_DIR, exist_ok=True)
+
 def download_font(url, filename):
     filepath = os.path.join(FONTS_DIR, filename)
-    if not os.path.exists(filepath):
+    # Check if file exists AND is larger than 10KB (to avoid downloading 404 HTML pages)
+    if not os.path.exists(filepath) or os.path.getsize(filepath) < 10000:
         try:
-            urllib.request.urlretrieve(url, filepath)
-        except: pass
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req) as response, open(filepath, 'wb') as out_file:
+                out_file.write(response.read())
+        except Exception as e:
+            print(f"Font download error: {e}")
     return filepath
 
-FONT_TITLE_WHITE = download_font("https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf", "Roboto-Bold.ttf")
-FONT_TITLE_COLORED = download_font("https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Black.ttf", "Roboto-Black.ttf")
-FONT_BODY = download_font("https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Medium.ttf", "Roboto-Medium.ttf")
+# Fixed paths to 'ofl/roboto' instead of 'apache/roboto'
+FONT_TITLE_WHITE = download_font("https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Bold.ttf", "Roboto-Bold.ttf")
+FONT_TITLE_COLORED = download_font("https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Black.ttf", "Roboto-Black.ttf")
+FONT_BODY = download_font("https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Medium.ttf", "Roboto-Medium.ttf")
 
 TEMPLATE_PATH = os.path.join(ASSETS_DIR, "template.png")
 HEX_MASK_PATH = os.path.join(ASSETS_DIR, "hex_mask.png")
@@ -160,6 +166,8 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         synopsis = apply_small_caps(synopsis)
         username = apply_small_caps(username)
 
+    # If fallback happens, default font size is 10px which is unreadable.
+    # So we force sizes even if we have to use default (though default ignores size, it's safer).
     try:
         font_main_white = ImageFont.truetype(FONT_TITLE_WHITE, 85) 
         font_colored_title = ImageFont.truetype(FONT_TITLE_COLORED, 65)
@@ -169,9 +177,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     except:
         font_main_white = font_genres = font_synopsis = font_brand = font_colored_title = ImageFont.load_default()
 
-    # ==========================================
-    # FIX: TITLE SHORTENER & S2 REPLACER
-    # ==========================================
+    # TITLE SHORTENER & S2 REPLACER
     title = title.upper()
     title = re.sub(r'SEASON\s+(\d+)', r'S\1', title) # "SEASON 2" becomes "S2"
     
