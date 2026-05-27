@@ -34,7 +34,7 @@ byt_fsub_seen = set()
 # Dictionary to track which users are in "add channel state"
 add_channel_state = {}
 
-@Bot.on_callback_query(filters.regex('^add_channel_req$'))
+@Bot.on_callback_query(filters.regex('^add_channel_req$'), group=-1)
 async def add_channel_req_cb(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
     add_channel_state[user_id] = True
@@ -63,7 +63,7 @@ Note: You must be an administrator in the channel for the bot to work.</blockquo
     else:
         await query.edit_message_text(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
-@Bot.on_callback_query(filters.regex('^cancel_add_channel$'))
+@Bot.on_callback_query(filters.regex('^cancel_add_channel$'), group=-1)
 async def cancel_add_channel_cb(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
     if user_id in add_channel_state:
@@ -114,19 +114,22 @@ async def add_channel_cmd(client: Client, message: Message):
 
 @Bot.on_chat_member_updated()
 async def chat_member_updated_handler(client: Client, update: ChatMemberUpdated):
+    # Only process updates regarding the bot itself being promoted to admin
     if update.new_chat_member and update.new_chat_member.user.id == client.me.id:
         if update.new_chat_member.status == ChatMemberStatus.ADMINISTRATOR:
             user_id = update.from_user.id
-            if user_id in add_channel_state:
-                chat = update.chat
-                try:
-                    await db.add_user_channel(user_id, chat.id, chat.title)
+            chat = update.chat
+            try:
+                await db.add_user_channel(user_id, chat.id, chat.title)
+                # clear state if present, but process regardless
+                if user_id in add_channel_state:
                     del add_channel_state[user_id]
-                    msg_text = """<blockquote>🍂 ʏᴏᴜ ʜᴀᴠᴇ ᴀᴅᴅᴇᴅ ᴛʜᴇ ʙᴏᴛ ᴛᴏ ᴛʜᴇ ᴄʜᴀɴɴᴇʟ ..
+                msg_text = """<blockquote>🍂 ʏᴏᴜ ʜᴀᴠᴇ ᴀᴅᴅᴇᴅ ᴛʜᴇ ʙᴏᴛ ᴛᴏ ᴛʜᴇ ᴄʜᴀɴɴᴇʟ ..
 ɴᴏᴡ ʏᴏᴜ ᴄᴀɴ ᴜsᴇ ᴛʜᴇ ғᴜɴᴄᴛɪᴏɴs ᴏғ ᴛʜᴇ ʙᴏᴛ ɪɴ ᴛʜᴀᴛ ᴄʜᴀɴɴᴇʟ‼️</blockquote>"""
-                    await client.send_message(user_id, msg_text, parse_mode=ParseMode.HTML)
-                except Exception as e:
-                    await client.send_message(user_id, f"Error adding channel: {e}")
+                await client.send_message(user_id, msg_text, parse_mode=ParseMode.HTML)
+            except Exception as e:
+                try: await client.send_message(user_id, f"Error adding channel: {e}")
+                except: pass
 
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
@@ -273,7 +276,7 @@ async def start_command(client: Client, message: Message):
         reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
                     [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
-                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='setting')],
+                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main')],
                     [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req')],
                 ])
         await message.reply_photo(
