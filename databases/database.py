@@ -627,4 +627,11 @@ class Rohit:
         user = await self.user_data.find_one({'_id': user_id})
         return user.get('user_channels', []) if user else []
 
+    async def get_anime_template(self, user_id: int):
+        user = await self.user_data.find_one({'_id': user_id})
+        return user.get('anime_template', 1) if user else 1
+
+    async def set_anime_template(self, user_id: int, template_id: int):
+        await self.user_data.update_one({'_id': user_id}, {'$set': {'anime_template': template_id}}, upsert=True)
+
 db = Rohit(DB_URL, DB_NAME)

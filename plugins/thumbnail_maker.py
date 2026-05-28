@@ -40,7 +40,27 @@ def apply_small_caps(text):
     trans = str.maketrans(normal, smallcaps)
     return text.translate(trans)
 
-async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_url=None, color_hex="#FF6B00"):
+def colorize_template_2(template_img, new_hex):
+    import numpy as np
+    arr = np.array(template_img)
+    target_hex = new_hex.lstrip('#')
+    new_r, new_g, new_b = tuple(int(target_hex[i:i+2], 16) for i in (0, 2, 4))
+
+    max_c = np.max(arr[:,:,:3], axis=2)
+    min_c = np.min(arr[:,:,:3], axis=2)
+    saturation = max_c - min_c
+
+    # Very simple color isolation for turquoise & purple on Template 2
+    # Adjust this threshold as needed based on actual template colors
+    mask = saturation > 30
+
+    arr[:,:,0][mask] = new_r
+    arr[:,:,1][mask] = new_g
+    arr[:,:,2][mask] = new_b
+
+    return Image.fromarray(arr)
+
+async def generate_poster(anime_img_url=None, custom_image_path=None, title="", genres="", synopsis="", username="", logo_url=None, crop_state=0, small_caps=False, template_url=None, color_hex="#FF6B00", template_version=1):
 
     if custom_image_path:
         anime_img = Image.open(custom_image_path).convert('RGBA')
@@ -76,6 +96,9 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
             
     if not base_template:
         base_template = Image.open(TEMPLATE_PATH).convert('RGBA')
+
+    if template_version == 2 and color_hex:
+        base_template = colorize_template_2(base_template, color_hex).convert('RGBA')
 
     try:
         fetched_mask = Image.open(HEX_MASK_PATH).convert('L')
@@ -149,8 +172,12 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     # BULLETPROOF FONT LOADER (Direct from your local files)
     # ==========================================
     try:
-        font_main_white = ImageFont.truetype(os.path.join(FONTS_DIR, "Roboto Bold.ttf"), 85) 
-        font_colored_title = ImageFont.truetype(os.path.join(FONTS_DIR, "Roboto Black.ttf"), 65)
+        if template_version == 2:
+            font_main_white = ImageFont.truetype(os.path.join(FONTS_DIR, "Roboto Bold.ttf"), 85)
+            font_colored_title = ImageFont.truetype(os.path.join(FONTS_DIR, "Roboto Black.ttf"), 65)
+        else:
+            font_main_white = ImageFont.truetype(os.path.join(FONTS_DIR, "Roboto Bold.ttf"), 85)
+            font_colored_title = ImageFont.truetype(os.path.join(FONTS_DIR, "Roboto Black.ttf"), 65)
     except:
         font_main_white = font_colored_title = ImageFont.load_default()
 
@@ -189,7 +216,8 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
 
     for i, line in enumerate(title_lines):
         if i == 0:
-            draw.text((x_offset, y_dynamic_offset), line, font=font_main_white, fill="white")
+            fill_color = "grey" if template_version == 2 else "white"
+            draw.text((x_offset, y_dynamic_offset), line, font=font_main_white, fill=fill_color)
             y_dynamic_offset += 100 
         else:
             draw.text((x_offset, y_dynamic_offset), line, font=font_colored_title, fill=color_hex)
