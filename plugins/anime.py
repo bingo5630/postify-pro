@@ -271,7 +271,16 @@ async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
     user_data[user_id]['images'] = images
 
     img_url = images[0] if images else "https://via.placeholder.com/1920x1080"
-    msg_text = apply_small_caps("Poster selection ready. Send custom image or skip to proceed.")
+
+    try:
+        current_template = await db.get_anime_template(user_id)
+    except Exception:
+        current_template = 1
+
+    if current_template == 2:
+        msg_text = "Please send the image as a DOCUMENT format (Ensure the background is erased/transparent)."
+    else:
+        msg_text = apply_small_caps("Poster selection ready. Send custom image or skip to proceed.")
 
     try:
         await callback_query.message.delete()
@@ -386,6 +395,14 @@ async def build_final_poster(client, callback_query, user_id):
 
     final_username = custom_text if custom_text else fallback_name
 
+    try:
+        from databases.database import db
+        current_template = await db.get_anime_template(user_id)
+    except Exception:
+        current_template = 1
+
+    template_to_use = color_info['url'] if current_template == 1 else "https://ibb.co/5W0HvcdJ"
+
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
         custom_image_path=custom_image_path,
@@ -396,8 +413,9 @@ async def build_final_poster(client, callback_query, user_id):
         logo_url=custom_logo,    
         crop_state=crop_state,
         small_caps=False,
-        template_url=color_info['url'], 
-        color_hex=color_info['hex']
+        template_url=template_to_use,
+        color_hex=color_info['hex'],
+        template_version=current_template
     )
 
     try:
