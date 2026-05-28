@@ -1,6 +1,7 @@
 import re
 import time
 import asyncio
+from plugins.wait_manager import show_wait
 import aiohttp
 import urllib.parse
 from pyrogram import filters
@@ -161,7 +162,7 @@ async def anime_cmd(client: Bot, message: Message):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Anilist"), callback_data="search_anilist"),
          InlineKeyboardButton(apply_small_caps("MyAnimeList"), callback_data="search_mal")],
-        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]
     ])
 
     await message.reply_text(f"SELECT SOURCE FOR: {query}", reply_markup=keyboard)
@@ -182,15 +183,15 @@ async def handle_anilist_search(client: Bot, callback_query: CallbackQuery):
         results = await fetch_anime_search(query, "anilist")
         user_data[user_id]['results'] = results
         if not results:
-            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
+            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
             raise StopPropagation
 
         buttons = [[InlineKeyboardButton(anime['title']['english'] or anime['title']['romaji'], callback_data=f"sel_ani_{i}")] for i, anime in enumerate(results)]
-        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")])
+        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")])
 
         await callback_query.message.edit_text(f"SEARCH RESULTS (ANILIST):", reply_markup=InlineKeyboardMarkup(buttons))
     except Exception as e:
-        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
+        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
     raise StopPropagation
 
 
@@ -209,15 +210,15 @@ async def handle_mal_search(client: Bot, callback_query: CallbackQuery):
         results = await fetch_anime_search(query, "mal")
         user_data[user_id]['results'] = results
         if not results:
-            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
+            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
             raise StopPropagation
 
         buttons = [[InlineKeyboardButton(anime['title']['english'] or anime['title']['romaji'], callback_data=f"sel_mal_{i}")] for i, anime in enumerate(results)]
-        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")])
+        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")])
 
         await callback_query.message.edit_text(f"SEARCH RESULTS (MAL):", reply_markup=InlineKeyboardMarkup(buttons))
     except Exception as e:
-        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
+        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
     raise StopPropagation
 
 
@@ -239,7 +240,7 @@ def get_initial_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Custom Img"), callback_data="anime_thumb_custom"),
          InlineKeyboardButton(apply_small_caps("Skip"), callback_data="anime_audio_menu")],
-        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]
     ])
 
 
@@ -305,7 +306,7 @@ async def anime_audio_menu(client: Bot, callback_query: CallbackQuery):
         [InlineKeyboardButton("Hindi", callback_data="anime_audio_Hindi"), InlineKeyboardButton("English", callback_data="anime_audio_English")],
         [InlineKeyboardButton("Dual Audio", callback_data="anime_audio_Dual Audio"), InlineKeyboardButton("Multi Audio", callback_data="anime_audio_Multi Audio")],
         [InlineKeyboardButton("Jap & Eng", callback_data="anime_audio_Jap & Eng"), InlineKeyboardButton("Custom Text", callback_data="anime_audio_custom")],
-        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]
     ])
     msg_text = "Select Audio Language or send custom text:"
 
@@ -433,7 +434,7 @@ def get_final_keyboard(color_state):
         [InlineKeyboardButton("𝗠𝗢𝗩𝗘", callback_data="anime_final_move"),
          InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
         [InlineKeyboardButton(f"🎨 {color_name}", callback_data="anime_final_color")],
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu"),
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start"),
          InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done")]
     ])
 
@@ -574,7 +575,7 @@ def get_channel_pagination_keyboard(channels, page=0):
     if pagination_row:
         keyboard_buttons.append(pagination_row)
 
-    keyboard_buttons.append([InlineKeyboardButton("𝗠𝗘𝗡𝗨", callback_data="close_anime_menu"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="close_anime_menu")])
+    keyboard_buttons.append([InlineKeyboardButton("𝗠𝗘𝗡𝗨", callback_data="start"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="start")])
     return InlineKeyboardMarkup(keyboard_buttons)
 
 async def process_publish_workflow(client: Bot, callback_query: CallbackQuery, user_id: int, page=0, edit_message=False):
@@ -620,8 +621,6 @@ def parse_anime_buttons(config_str: str, target_link: str) -> InlineKeyboardMark
             parts = btn_str.split('-', 1)
             if len(parts) == 2:
                 btn_text = parts[0].strip()
-                if btn_text.startswith('#'):
-                    btn_text = btn_text.split(' ', 1)[1] if ' ' in btn_text else btn_text
                 btn_url = parts[1].strip().replace('{link}', target_link)
                 row.append(InlineKeyboardButton(btn_text, url=btn_url))
         if row:
@@ -684,8 +683,8 @@ async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧", callback_data="anime_pub_send"), InlineKeyboardButton("𝗦𝗖𝗛𝗘𝗗𝗨𝗟𝗘", callback_data="anime_pub_schedule")],
         [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧 𝗧𝗢 𝗠𝗢𝗥𝗘 𝗖𝗛𝗔𝗡𝗡𝗘𝗟𝗦", callback_data="anime_pub_more")],
-        [InlineKeyboardButton("𝗣𝗜𝗡 𝗣𝗢𝗦𝗧", callback_data="anime_pub_pin"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_pub_back")],
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
+        [InlineKeyboardButton("𝗣𝗜𝗡 𝗣𝗢𝗦𝗧", callback_data="anime_pub_pin"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="start")],
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start")]
     ])
 
     await callback_query.message.edit_text(msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
@@ -781,7 +780,7 @@ Examples:
 <code>in 10 days 5 hours 2 minutes</code>
 <code>tomorrow at 12:00</code></blockquote>"""
 
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]])
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start")]])
 
     try:
         response = await client.ask(user_id, msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML, timeout=120)
@@ -824,16 +823,27 @@ Examples:
 
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
+    await show_wait(callback_query)
     user_id = callback_query.from_user.id
-    await callback_query.answer("Poster Done! Fetching channels...")
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start")]
     ])
     try:
-        response = await client.ask(user_id, "<blockquote>ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴍᴇ ᴛʜᴇ ʟɪɴᴋ ғᴏʀ ᴛʜᴇ ᴘᴏsᴛ/ᴅᴏᴡɴʟᴏᴀᴅ ʙᴜᴛᴛᴏɴ</blockquote>", reply_markup=keyboard, parse_mode=ParseMode.HTML, timeout=120)
-        user_data[user_id]['post_link'] = response.text
-        await process_publish_workflow(client, callback_query, user_id)
+        if callback_query.message.photo:
+            await callback_query.message.delete()
+            sent_msg = await client.send_message(user_id, "<blockquote>ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴍᴇ ᴛʜᴇ ʟɪɴᴋ ғᴏʀ ᴛʜᴇ ᴘᴏsᴛ/ᴅᴏᴡɴʟᴏᴀᴅ ʙᴜᴛᴛᴏɴ</blockquote>", reply_markup=keyboard, parse_mode=ParseMode.HTML)
+            response = await client.listen(chat_id=user_id, timeout=120)
+            user_data[user_id]['post_link'] = response.text
+            # Replace the link msg with process publish
+            callback_query.message = sent_msg
+        else:
+            sent_msg = await callback_query.edit_message_text("<blockquote>ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴍᴇ ᴛʜᴇ ʟɪɴᴋ ғᴏʀ ᴛʜᴇ ᴘᴏsᴛ/ᴅᴏᴡɴʟᴏᴀᴅ ʙᴜᴛᴛᴏɴ</blockquote>", reply_markup=keyboard, parse_mode=ParseMode.HTML)
+            response = await client.listen(chat_id=user_id, timeout=120)
+            user_data[user_id]['post_link'] = response.text
+            callback_query.message = sent_msg
+
+        await process_publish_workflow(client, callback_query, user_id, edit_message=True)
     except asyncio.TimeoutError:
         await client.send_message(user_id, "Publish process canceled due to timeout.")
     raise StopPropagation

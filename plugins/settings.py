@@ -3,6 +3,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from bot import Bot
 from plugins.utils import apply_small_caps
 import asyncio
+from plugins.wait_manager import show_wait
 
 # Updated Main Settings Text with Small Caps and Quotes
 MAIN_SETTINGS_TEXT = f"""{apply_small_caps("i'm an auto post maker & thumb maker bot, built with love.")}
@@ -106,7 +107,7 @@ async def settings_command(client: Client, message: Message):
         [InlineKeyboardButton(apply_small_caps("TvShows"), callback_data="set_tvshows"), InlineKeyboardButton(apply_small_caps("Movies"), callback_data="set_movies")],
         [InlineKeyboardButton(apply_small_caps("Post Setting"), callback_data="post_settings")],
         [InlineKeyboardButton(apply_small_caps("Auto Forward"), callback_data="auto_forward"), InlineKeyboardButton(apply_small_caps("Post Search"), callback_data="post_search")],
-        [InlineKeyboardButton(apply_small_caps("Back"), callback_data="close")]
+        [InlineKeyboardButton(apply_small_caps("Back"), callback_data="start")]
     ])
     await message.reply_photo(photo=TEMPLATE_PIC, caption=header + MAIN_SETTINGS_TEXT, reply_markup=keyboard)
 
@@ -121,7 +122,7 @@ async def settings_main_cb(client: Client, query: CallbackQuery):
         [InlineKeyboardButton(apply_small_caps("TvShows"), callback_data="set_tvshows"), InlineKeyboardButton(apply_small_caps("Movies"), callback_data="set_movies")],
         [InlineKeyboardButton(apply_small_caps("Post Setting"), callback_data="post_settings")],
         [InlineKeyboardButton(apply_small_caps("Auto Forward"), callback_data="auto_forward"), InlineKeyboardButton(apply_small_caps("Post Search"), callback_data="post_search")],
-        [InlineKeyboardButton(apply_small_caps("Back"), callback_data="close")]
+        [InlineKeyboardButton(apply_small_caps("Back"), callback_data="start")]
     ])
     try:
         await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + MAIN_SETTINGS_TEXT), reply_markup=keyboard)
@@ -184,7 +185,7 @@ async def anime_buttons_cb(client: Client, query: CallbackQuery):
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗦𝗘𝗧", callback_data="set_anime_buttons_text"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="set_anime")],
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close")]
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start")]
     ])
     await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + get_anime_buttons_text(current_buttons)), reply_markup=keyboard)
 

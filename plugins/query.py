@@ -2,6 +2,8 @@ import random
 import requests
 import logging
 import asyncio
+from plugins.wait_manager import show_wait
+import asyncio
 import aiohttp 
 from pyrogram import enums
 from bot import Bot
@@ -143,6 +145,7 @@ async def authoUser(query, id, owner_only=False):
 async def cb_handler(client: Bot, query: CallbackQuery):
     data = query.data
     if data == "close":
+        await show_wait(query)
         await query.message.delete()
         try:
             await query.message.reply_to_message.delete()
@@ -184,6 +187,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
 
         
     elif data == "close":
+        await show_wait(query)
         await query.message.delete()
         try:
             await query.message.reply_to_message.delete()
