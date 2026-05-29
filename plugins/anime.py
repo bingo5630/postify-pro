@@ -19,16 +19,16 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
 COLORS = [
     {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
-    {"name": "GREEN", "hex": "#28a745", "url": "https://ibb.co/G4GhnCsZ"},
-    {"name": "TURQUOISE", "hex": "#40E0D0", "url": "https://ibb.co/1fVPgwqd"},
-    {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://ibb.co/yTznRcZ"},
-    {"name": "PINK", "hex": "#FF69B4", "url": "https://ibb.co/b5DVk3LR"},
-    {"name": "BLUE", "hex": "#007BFF", "url": "https://ibb.co/pjz3Ts34"},
-    {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://ibb.co/C3jnf6sr"},
-    {"name": "RED", "hex": "#DC143C", "url": "https://ibb.co/9m1V2CPM"},
-    {"name": "TEAL BLUE", "hex": "#20B2AA", "url": "https://ibb.co/LXD0djss"},
-    {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://ibb.co/FLqd5jt4"},
-    {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://ibb.co/yc8zYYYt"}
+    {"name": "GREEN", "hex": "#28a745", "url": "https://i.ibb.co/9kBMcywx/New-Project-10-Copy-Copy-60-F2-A8-A.png"},
+    {"name": "TURQUOISE", "hex": "#40E0D0", "url": "https://i.ibb.co/XZBKQvs3/New-Project-10-Copy-Copy-B12-C259.png"},
+    {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://i.ibb.co/HvcD2fb/New-Project-10-Copy-Copy-049-FC50.png"},
+    {"name": "PINK", "hex": "#FF69B4", "url": "https://i.ibb.co/chV9jvtX/New-Project-10-Copy-Copy-C789413.png"},
+    {"name": "BLUE", "hex": "#007BFF", "url": "https://i.ibb.co/s9wF4DFs/New-Project-10-Copy-Copy-C9999-D5.png"},
+    {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://i.ibb.co/MxzRmf5X/New-Project-10-Copy-Copy-27-A0219.png"},
+    {"name": "RED", "hex": "#DC143C", "url": "https://i.ibb.co/cKZCt7qm/New-Project-10-Copy-Copy-B10-AC8-E.png"},
+    {"name": "TEAL BLUE", "hex": "#20B2AA", "url": "https://i.ibb.co/0Rpny4zz/New-Project-10-Copy-Copy-984-B6-D5.png"},
+    {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://i.ibb.co/Kpz823Hx/New-Project-10-Copy-Copy-DACF801.png"},
+    {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://i.ibb.co/Xrzn3331/New-Project-10-Copy-Copy-6-ED17-E1.png"}
 ]
 
 async def fetch_extra_images(title_eng, title_rom, mal_id=None):
@@ -413,7 +413,7 @@ async def build_final_poster(client, callback_query, user_id):
     except Exception:
         current_template = 1
 
-    template_to_use = color_info['url'] if current_template == 1 else "https://ibb.co/5W0HvcdJ"
+    template_to_use = color_info['url'] if current_template == 1 else "https://i.ibb.co/nsGJfkTK/New-Project-10-Copy-Copy-DBC511-C.png"
 
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,

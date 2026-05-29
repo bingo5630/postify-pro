@@ -34,7 +34,7 @@ FORCE_PIC = os.environ.get("FORCE_PIC", "https://graph.org/file/d14344c65c52acc0
 TG_BOT_WORKERS = int(os.environ.get("TG_BOT_WORKERS", "4"))
 
 #Collection of pics for Bot // #Optional but atleast one pic link should be replaced if you don't want predefined links
-PICS = (os.environ.get("PICS", "https://ibb.co/wFztdrRc")).split() #Required
+PICS = (os.environ.get("PICS", "https://i.ibb.co/S43S67Pf/Picsart-26-05-29-05-43-05-096.png")).split() #Required
 #set your Custom Caption here, Keep None for Disable Custom Caption
 CUSTOM_CAPTION = os.environ.get("CUSTOM_CAPTION", None)
 
