@@ -212,7 +212,7 @@ async def start_command(client: Client, message: Message):
                     # DIRECT LINK DAALEIN YAHAN
                     await client.send_photo(
                         chat_id=id,
-                        photo="YOUR_DIRECT_JPG_LINK_HERE", 
+                        photo="https://graph.org/file/8195f2ba9ec35e5673ae9-17a0119f790f64e3b3.jpg", 
                         caption=FORCE_MSG.format(
                             first=message.from_user.first_name,
                             last=message.from_user.last_name,
