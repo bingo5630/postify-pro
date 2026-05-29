@@ -1,8 +1,6 @@
 # +++ ᴜɪ ʙʏ ᴀʜᴍᴇᴅ [telegram username: @ᴜʀʀ_sᴀɴᴊɪɪɪ] +++
 
 import asyncio
-import aiohttp
-from bs4 import BeautifulSoup
 from plugins.wait_manager import show_wait
 import base64
 import logging
@@ -30,36 +28,6 @@ from datetime import datetime, timedelta
 from pytz import timezone
 
 # +++ ᴜɪ ʙʏ ᴀʜᴍᴇᴅ [telegram username: @ᴜʀʀ_sᴀɴᴊɪɪɪ] +++
-
-# Cache to store extracted direct image URLs so it only scrapes ONCE
-IMAGE_CACHE = {}
-
-async def get_direct_image_url(url: str) -> str:
-    """Fetches the direct image URL from an ImgBB viewer link and caches it."""
-    # If it's already cached, return it instantly
-    if url in IMAGE_CACHE:
-        return IMAGE_CACHE[url]
-        
-    # If it's not an ImgBB link, just return as is
-    if not url.startswith("https://ibb.co/") and not url.startswith("http://ibb.co/"):
-        return url
-        
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
-                meta_tag = soup.find('meta', property='og:image')
-                if meta_tag and meta_tag.get('content'):
-                    direct_url = meta_tag['content']
-                    IMAGE_CACHE[url] = direct_url
-                    return direct_url
-    except Exception as e:
-        logging.error(f"Error scraping image URL: {e}")
-        
-    # Fallback to the original URL if extraction fails
-    return url
-
 
 # Track (user_id, link_param) pairs who already saw /byt forcesub for a specific link
 byt_fsub_seen = set()
@@ -222,8 +190,6 @@ async def start_command(client: Client, message: Message):
     if len(text)>7:
         await message.delete()
 
-        # If /byt buttons are added, show byt forcesub ONCE per link
-        # Track by (user_id, link_param) so same link = no repeat, new link = show again
         try:
             link_param = text.split(" ", 1)[1] if len(text.split(" ", 1)) > 1 else None
         except:
@@ -243,12 +209,10 @@ async def start_command(client: Client, message: Message):
                     except IndexError:
                         pass
                     
-                    # Fetch Image dynamically
-                    fsub_img_url = await get_direct_image_url("https://ibb.co/wFztdrRc")
-
+                    # DIRECT LINK DAALEIN YAHAN
                     await client.send_photo(
                         chat_id=id,
-                        photo=fsub_img_url,
+                        photo="YOUR_DIRECT_JPG_LINK_HERE", 
                         caption=FORCE_MSG.format(
                             first=message.from_user.first_name,
                             last=message.from_user.last_name,
@@ -258,8 +222,7 @@ async def start_command(client: Client, message: Message):
                         ),
                         reply_markup=InlineKeyboardMarkup(byt_buttons)
                     )
-                    return  # Stop here - user must click 'now click here' again to get files
-                # If already seen for this link, just continue to deliver files
+                    return  
         except Exception as e:
             logging.info(f"Error sending /byt force-sub message: {e}")
 
@@ -267,7 +230,7 @@ async def start_command(client: Client, message: Message):
         except: return
 
         string = await decode(base64_string)
-        if not string:  # Check if decode failed
+        if not string: 
             return
         argument = string.split("-")
 
@@ -346,11 +309,9 @@ async def start_command(client: Client, message: Message):
                 ])
         mention_html = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
         
-        # EXTRACT IMAGE DIRECT URL (CACHED)
-        start_img_url = await get_direct_image_url("https://ibb.co/wFztdrRc")
-
+        # DIRECT LINK DAALEIN YAHAN
         await message.reply_photo(
-            photo = start_img_url,
+            photo = "YOUR_DIRECT_JPG_LINK_HERE",
             caption = START_MSG.format(
                 first = message.from_user.first_name,
                 last = message.from_user.last_name,
@@ -372,7 +333,6 @@ async def start_command(client: Client, message: Message):
 ##===================================================================================================================##   
 
 
-# Create a global dictionary to store chat data
 chat_data_cache = {}
 
 @Bot.on_message(filters.command('start') & filters.private & ~banUser)
@@ -389,19 +349,16 @@ async def not_joined(client: Client, message: Message):
         for total, chat_id in enumerate(await db.get_all_channels(), start=1):
             await message.reply_chat_action(ChatAction.PLAYING)
 
-            # Show the join button of non-subscribed Channels.....
             if not await is_userJoin(client, user_id, chat_id):
                 try:
-                    # Check if chat data is in cache
                     if chat_id in chat_data_cache:
-                        data = chat_data_cache[chat_id]  # Get data from cache
+                        data = chat_data_cache[chat_id] 
                     else:
-                        data = await client.get_chat(chat_id)  # Fetch from API
-                        chat_data_cache[chat_id] = data  # Store in cache
+                        data = await client.get_chat(chat_id)  
+                        chat_data_cache[chat_id] = data 
 
                     cname = data.title
 
-                    # Handle private channels and links
                     if REQFSUB and not data.username: 
                         link = await db.get_stored_reqLink(chat_id)
                         await db.add_reqChannel(chat_id)
@@ -412,7 +369,6 @@ async def not_joined(client: Client, message: Message):
                     else:
                         link = data.invite_link
 
-                    # Add button for the chat
                     buttons.append([InlineKeyboardButton(text='»  ᴊᴏɪɴ ᴄʜᴀɴɴᴇʟ  «', url=link)])
                     count += 1
                     await temp.edit(f"<b>{'! ' * count}</b>")
@@ -421,12 +377,10 @@ async def not_joined(client: Client, message: Message):
                     print(f"Can't Export Channel Name and Link..., Please Check If the Bot is admin in the FORCE SUB CHANNELS:\nProvided Force sub Channel:- {chat_id}")
                     return await temp.edit(f"<b>! ᴇʀʀᴏʀ, ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @urr_sanjiii</b>\n<blockquote expandable><b>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>")
 
-        # If user has joined all channels, delete temp and return (success - they're verified)
         if count == 0:
             await temp.delete()
             return 
 
-        # Add /byt links (always show if they exist, regardless of REQFSUB)
         try:
             byt_links = await db.get_all_fsub_button_links()
             if byt_links:
@@ -435,17 +389,14 @@ async def not_joined(client: Client, message: Message):
         except Exception as e:
             logging.info(f"No /byt links to add: {e}")
 
-        # Add "now click here" button last
         try:
             buttons.append([InlineKeyboardButton(text='‼️ ɴᴏᴡ ᴄʟɪᴄᴋ ʜᴇʀᴇ ‼️', url=f"https://t.me/{client.username}?start={message.command[1]}")])
         except IndexError:
             pass
 
-        # EXTRACT IMAGE DIRECT URL (CACHED)
-        not_joined_img_url = await get_direct_image_url("https://ibb.co/wFztdrRc")
-
+        # DIRECT LINK DAALEIN YAHAN
         await message.reply_photo(
-            photo=not_joined_img_url,
+            photo="YOUR_DIRECT_JPG_LINK_HERE",
             caption=FORCE_MSG.format(
                 first=message.from_user.first_name,
                 last=message.from_user.last_name,
@@ -456,12 +407,9 @@ async def not_joined(client: Client, message: Message):
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as e:
-        print(f"Error: {e}")  # Print the error message for debugging
-        # Optionally, send an error message to the user or handle further actions here
+        print(f"Error: {e}") 
         await temp.edit(f"<b><i>! ᴇʀʀᴏʀ, ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @urr_sanjiii</i></b>\n<blockquote expandable><b>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>")
 
-
-# +++ Customised By Rohit [telegram username: @rohit_1888] +++
 
 #=====================================================================================##
 #......... RESTART COMMAND FOR RESTARTING BOT .......#
@@ -472,13 +420,10 @@ async def restart_bot(client: Client, message: Message):
     print("Restarting bot...")
     msg = await message.reply(text=f"<b><i>» {client.name} ɢᴏɪɴɢ ᴛᴏ ʀᴇsᴛᴀʀᴛ...\n\n» ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ ғᴏʀ 5 sᴇᴄᴏɴᴅs...!!!</i></b>")
     try:
-        await asyncio.sleep(5)  # Wait for 5 seconds before restarting
+        await asyncio.sleep(5)  
         await msg.delete()
-        args = [sys.executable, "main.py"]  # Adjust this if your start file is named differently
+        args = [sys.executable, "main.py"]  
         os.execl(sys.executable, *args)
     except Exception as e:
         print(f"Error occured while Restarting the bot: {e}")
         return await msg.edit_text(f"<b>! ᴇʀʀᴏʀ, ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @urr_sanjiii</b>\n<blockquote expandable><b>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>")
-    # Optionally, you can add cleanup tasks here
-    #subprocess.Popen([sys.executable, "main.py"])  # Adjust this if your start file is named differently
-    #sys.exit()
