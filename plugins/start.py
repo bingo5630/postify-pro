@@ -37,6 +37,7 @@ add_channel_state = {}
 
 @Bot.on_callback_query(filters.regex('^add_channel_req$'), group=-1)
 async def add_channel_req_cb(client: Client, query: CallbackQuery):
+    await show_wait(query)
     user_id = query.from_user.id
     add_channel_state[user_id] = True
 
@@ -55,22 +56,44 @@ To add a channel, you have two options:
 Note: You must be an administrator in the channel for the bot to work.</blockquote>"""
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="cancel_add_channel")]
+        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="cancel_add_channel"), InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="cancel_add_channel")]
     ])
 
     if query.message.photo:
-        await query.message.delete()
-        await client.send_message(chat_id=user_id, text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        try: await query.edit_message_caption(caption=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        except Exception: pass
     else:
-        await query.edit_message_text(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        try: await query.edit_message_text(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        except Exception: pass
 
 @Bot.on_callback_query(filters.regex('^cancel_add_channel$'), group=-1)
 async def cancel_add_channel_cb(client: Client, query: CallbackQuery):
+    await show_wait(query)
     user_id = query.from_user.id
     if user_id in add_channel_state:
         del add_channel_state[user_id]
-    await query.message.delete()
-    await query.answer("Add channel process canceled.")
+
+    reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
+        [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
+         InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
+        [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
+    ])
+    mention_html = f"<a href='tg://user?id={query.from_user.id}'>{query.from_user.first_name}</a>"
+    start_text = START_MSG.format(
+        first = query.from_user.first_name,
+        last = query.from_user.last_name,
+        username = None if not query.from_user.username else '@' + query.from_user.username,
+        mention = mention_html,
+        id = query.from_user.id
+    )
+
+    try:
+        if query.message.photo:
+            await query.edit_message_caption(caption=start_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+        else:
+            await query.edit_message_text(text=start_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+    except Exception: pass
 
 from pyrogram.types import ChatMemberUpdated
 from pyrogram.enums import ChatMemberStatus
@@ -281,18 +304,19 @@ async def start_command(client: Client, message: Message):
 
     else:
         reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
-                    [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
-                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main')],
-                    [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req')],
+                    [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
+                    [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
+                     InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
+                    [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
                 ])
+        mention_html = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
         await message.reply_photo(
             photo = random.choice(PICS),
             caption = START_MSG.format(
                 first = message.from_user.first_name,
                 last = message.from_user.last_name,
                 username = None if not message.from_user.username else '@' + message.from_user.username,
-                mention = message.from_user.mention,
+                mention = mention_html,
                 id = message.from_user.id
             ),
             reply_markup = reply_markup,

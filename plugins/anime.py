@@ -299,7 +299,12 @@ async def handle_anime_thumb_custom(client: Bot, callback_query: CallbackQuery):
 
     await callback_query.answer("Please send the custom photo/document now.")
     try:
-        response = await client.ask(user_id, "Send the custom image (as a photo or document) for the poster now:", filters=(filters.photo | filters.document), timeout=60)
+        response = await client.ask(
+            user_id,
+            "Send the custom image (as a photo or document) for the poster now:",
+            filters=(filters.photo | filters.document),
+            timeout=60
+        )
 
         if response.document:
             mime = response.document.mime_type
@@ -647,7 +652,23 @@ def parse_anime_buttons(config_str: str, target_link: str) -> InlineKeyboardMark
             if len(parts) == 2:
                 btn_text = parts[0].strip()
                 btn_url = parts[1].strip().replace('{link}', target_link)
-                row.append(InlineKeyboardButton(btn_text, url=btn_url))
+
+                # Check for Telegram color tags
+                btn_kwargs = {"text": btn_text, "url": btn_url}
+                if btn_text.startswith('#p '):
+                    btn_kwargs['text'] = btn_text[3:]
+                    btn_kwargs['style'] = 'primary'
+                elif btn_text.startswith('#g '):
+                    btn_kwargs['text'] = btn_text[3:]
+                    btn_kwargs['style'] = 'success'
+                elif btn_text.startswith('#r '):
+                    btn_kwargs['text'] = btn_text[3:]
+                    btn_kwargs['style'] = 'danger'
+                elif btn_text.startswith('#') and ' ' in btn_text:
+                    # Fallback stripping for unknown tags
+                    btn_kwargs['text'] = btn_text.split(' ', 1)[1]
+
+                row.append(InlineKeyboardButton(**btn_kwargs))
         if row:
             rows.append(row)
     return InlineKeyboardMarkup(rows) if rows else None
@@ -687,6 +708,7 @@ async def send_anime_post(client: Bot, user_id: int, chat_id: int, pin: bool = F
 
 @Bot.on_callback_query(filters.regex("^anime_pub_cancel_confirm$"), group=-1)
 async def handle_anime_pub_cancel_confirm(client: Bot, callback_query: CallbackQuery):
+    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
@@ -695,6 +717,7 @@ async def handle_anime_pub_cancel_confirm(client: Bot, callback_query: CallbackQ
 
 @Bot.on_callback_query(filters.regex("^anime_pub_confirm$"), group=-1)
 async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
+    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
         return await callback_query.answer("Session expired.", show_alert=True)
@@ -717,6 +740,7 @@ async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
 
 @Bot.on_callback_query(filters.regex(r"^anime_pub_ch_(-\d+|\d+)$"), group=-1)
 async def handle_anime_pub_ch(client: Bot, callback_query: CallbackQuery):
+    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
@@ -734,10 +758,11 @@ async def handle_anime_pub_ch(client: Bot, callback_query: CallbackQuery):
 
 @Bot.on_callback_query(filters.regex("^anime_pub_back$"), group=-1)
 async def handle_anime_pub_back(client: Bot, callback_query: CallbackQuery):
+    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
-    await process_publish_workflow(client, callback_query, user_id)
+    await process_publish_workflow(client, callback_query, user_id, edit_message=True)
     raise StopPropagation
 
 @Bot.on_callback_query(filters.regex("^anime_pub_send$"), group=-1)
@@ -790,6 +815,7 @@ from datetime import datetime
 
 @Bot.on_callback_query(filters.regex("^anime_pub_schedule$"), group=-1)
 async def handle_anime_pub_schedule(client: Bot, callback_query: CallbackQuery):
+    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
         return await callback_query.answer("Session expired.", show_alert=True)
