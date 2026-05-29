@@ -111,7 +111,7 @@ async def settings_command(client: Client, message: Message):
     ])
     await message.reply_photo(photo=TEMPLATE_PIC, caption=header + MAIN_SETTINGS_TEXT, reply_markup=keyboard)
 
-@Bot.on_callback_query(filters.regex('^settings_main$'))
+@Bot.on_callback_query(filters.regex('^settings_main$'), group=-1)
 async def settings_main_cb(client: Client, query: CallbackQuery):
     user = query.from_user
     await query.edit_message_caption(caption=WAIT_MSG)
@@ -129,7 +129,7 @@ async def settings_main_cb(client: Client, query: CallbackQuery):
     except:
         pass
 
-@Bot.on_callback_query(filters.regex('^set_anime$'))
+@Bot.on_callback_query(filters.regex('^set_anime$'), group=-1)
 async def anime_settings_cb(client: Client, query: CallbackQuery):
     user = query.from_user
     await query.edit_message_caption(caption=WAIT_MSG)
@@ -153,7 +153,7 @@ async def anime_settings_cb(client: Client, query: CallbackQuery):
     except:
         pass
 
-@Bot.on_callback_query(filters.regex('^set_anime_caption$'))
+@Bot.on_callback_query(filters.regex('^set_anime_caption$'), group=-1)
 async def anime_caption_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Caption Settings")
@@ -163,7 +163,7 @@ async def anime_caption_cb(client: Client, query: CallbackQuery):
     ])
     await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + CAPTION_TEXT), reply_markup=keyboard)
 
-@Bot.on_callback_query(filters.regex('^set_anime_caption_text$'))
+@Bot.on_callback_query(filters.regex('^set_anime_caption_text$'), group=-1)
 async def anime_caption_text_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the custom caption format now.")
     try:
@@ -173,7 +173,7 @@ async def anime_caption_text_cb(client: Client, query: CallbackQuery):
     except asyncio.TimeoutError:
         await client.send_message(query.from_user.id, "Timeout occurred.")
 
-@Bot.on_callback_query(filters.regex('^set_anime_buttons$'))
+@Bot.on_callback_query(filters.regex('^set_anime_buttons$'), group=-1)
 async def anime_buttons_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Buttons Settings")
@@ -189,7 +189,7 @@ async def anime_buttons_cb(client: Client, query: CallbackQuery):
     ])
     await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + get_anime_buttons_text(current_buttons)), reply_markup=keyboard)
 
-@Bot.on_callback_query(filters.regex('^set_anime_buttons_text$'))
+@Bot.on_callback_query(filters.regex('^set_anime_buttons_text$'), group=-1)
 async def anime_buttons_text_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the new button config now.")
     try:
@@ -203,7 +203,7 @@ async def anime_buttons_text_cb(client: Client, query: CallbackQuery):
     except asyncio.TimeoutError:
         await client.send_message(query.from_user.id, "Timeout occurred.")
 
-@Bot.on_callback_query(filters.regex('^set_anime_template$'))
+@Bot.on_callback_query(filters.regex('^set_anime_template$'), group=-1)
 async def anime_template_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Template Settings")
@@ -234,7 +234,7 @@ async def anime_template_cb(client: Client, query: CallbackQuery):
         pass
 
 # FIX: Jab Template 1 dabayenge toh Template 1 Preview Pic Dikhayega!
-@Bot.on_callback_query(filters.regex('^set_anime_template_1$'))
+@Bot.on_callback_query(filters.regex('^set_anime_template_1$'), group=-1)
 async def anime_template_1_cb(client: Client, query: CallbackQuery):
     await query.answer("Selecting Template 1...", show_alert=False)
     try:
@@ -243,7 +243,7 @@ async def anime_template_1_cb(client: Client, query: CallbackQuery):
     except: pass
     await anime_template_cb(client, query)
 
-@Bot.on_callback_query(filters.regex('^set_anime_template_2$'))
+@Bot.on_callback_query(filters.regex('^set_anime_template_2$'), group=-1)
 async def anime_template_2_cb(client: Client, query: CallbackQuery):
     await query.answer("Selecting Poster 2...", show_alert=False)
     try:
@@ -253,7 +253,7 @@ async def anime_template_2_cb(client: Client, query: CallbackQuery):
     await anime_template_cb(client, query)
 
 
-@Bot.on_callback_query(filters.regex('^set_anime_branding$'))
+@Bot.on_callback_query(filters.regex('^set_anime_branding$'), group=-1)
 async def anime_branding_cb(client: Client, query: CallbackQuery):
     await query.edit_message_caption(caption=WAIT_MSG)
     header = get_header("Branding Settings")
@@ -276,7 +276,7 @@ async def anime_branding_cb(client: Client, query: CallbackQuery):
     ])
     await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_PIC, caption=header + dynamic_branding_text), reply_markup=keyboard)
 
-@Bot.on_callback_query(filters.regex('^set_anime_brand_text$'))
+@Bot.on_callback_query(filters.regex('^set_anime_brand_text$'), group=-1)
 async def anime_brand_text_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the custom text now.")
     try:
@@ -290,7 +290,7 @@ async def anime_brand_text_cb(client: Client, query: CallbackQuery):
     except asyncio.TimeoutError:
         await client.send_message(query.from_user.id, "Timeout occurred.")
 
-@Bot.on_callback_query(filters.regex('^set_anime_brand_logo$'))
+@Bot.on_callback_query(filters.regex('^set_anime_brand_logo$'), group=-1)
 async def anime_brand_logo_cb(client: Client, query: CallbackQuery):
     await query.answer("Please send the custom logo photo now.")
     try:
@@ -305,7 +305,7 @@ async def anime_brand_logo_cb(client: Client, query: CallbackQuery):
     except asyncio.TimeoutError:
         await client.send_message(query.from_user.id, "Timeout occurred.")
 
-@Bot.on_callback_query(filters.regex('^set_anime_brand_default$'))
+@Bot.on_callback_query(filters.regex('^set_anime_brand_default$'), group=-1)
 async def anime_brand_default_cb(client: Client, query: CallbackQuery):
     try:
         from databases.database import db
@@ -314,7 +314,7 @@ async def anime_brand_default_cb(client: Client, query: CallbackQuery):
     await query.answer("Reverted to default branding.", show_alert=True)
     await anime_branding_cb(client, query)
 
-@Bot.on_callback_query(filters.regex('^set_anime_font'))
+@Bot.on_callback_query(filters.regex('^set_anime_font'), group=-1)
 async def anime_font_cb(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
     data = query.data

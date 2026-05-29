@@ -190,6 +190,8 @@ async def start_command(client: Client, message: Message):
     if len(text)>7:
         await message.delete()
 
+        # If /byt buttons are added, show byt forcesub ONCE per link
+        # Track by (user_id, link_param) so same link = no repeat, new link = show again
         try:
             link_param = text.split(" ", 1)[1] if len(text.split(" ", 1)) > 1 else None
         except:
@@ -208,11 +210,9 @@ async def start_command(client: Client, message: Message):
                         byt_buttons.append([InlineKeyboardButton(text='‼️ ɴᴏᴡ ᴄʟɪᴄᴋ ʜᴇʀᴇ ‼️', url=f"https://t.me/{client.username}?start={message.command[1]}")])
                     except IndexError:
                         pass
-                    
-                    # DIRECT LINK DAALEIN YAHAN
                     await client.send_photo(
                         chat_id=id,
-                        photo="https://graph.org/file/8195f2ba9ec35e5673ae9-17a0119f790f64e3b3.jpg", 
+                        photo=FORCE_PIC if FORCE_PIC else random.choice(PICS),
                         caption=FORCE_MSG.format(
                             first=message.from_user.first_name,
                             last=message.from_user.last_name,
@@ -222,7 +222,8 @@ async def start_command(client: Client, message: Message):
                         ),
                         reply_markup=InlineKeyboardMarkup(byt_buttons)
                     )
-                    return  
+                    return  # Stop here - user must click 'now click here' again to get files
+                # If already seen for this link, just continue to deliver files
         except Exception as e:
             logging.info(f"Error sending /byt force-sub message: {e}")
 
@@ -230,7 +231,7 @@ async def start_command(client: Client, message: Message):
         except: return
 
         string = await decode(base64_string)
-        if not string: 
+        if not string:  # Check if decode failed
             return
         argument = string.split("-")
 
@@ -303,15 +304,13 @@ async def start_command(client: Client, message: Message):
     else:
         reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
-                    [InlineKeyboardButton(text="• sᴇᴛᴛɪɴɢs", callback_data='setting', style='danger'),
-                     InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ •', callback_data='settings_main', style='danger')],
+                    [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
+                     InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
                     [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
                 ])
         mention_html = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
-        
-        # DIRECT LINK DAALEIN YAHAN
         await message.reply_photo(
-            photo = "https://graph.org/file/b9ea4b52384f13417e04a-0c31608668400ea8a3.jpg",
+            photo = random.choice(PICS),
             caption = START_MSG.format(
                 first = message.from_user.first_name,
                 last = message.from_user.last_name,
@@ -320,7 +319,7 @@ async def start_command(client: Client, message: Message):
                 id = message.from_user.id
             ),
             reply_markup = reply_markup,
-            has_spoiler = True
+		has_spoiler = True
         )
         try: await message.delete()
         except: pass
@@ -333,6 +332,7 @@ async def start_command(client: Client, message: Message):
 ##===================================================================================================================##   
 
 
+# Create a global dictionary to store chat data
 chat_data_cache = {}
 
 @Bot.on_message(filters.command('start') & filters.private & ~banUser)
@@ -349,16 +349,19 @@ async def not_joined(client: Client, message: Message):
         for total, chat_id in enumerate(await db.get_all_channels(), start=1):
             await message.reply_chat_action(ChatAction.PLAYING)
 
+            # Show the join button of non-subscribed Channels.....
             if not await is_userJoin(client, user_id, chat_id):
                 try:
+                    # Check if chat data is in cache
                     if chat_id in chat_data_cache:
-                        data = chat_data_cache[chat_id] 
+                        data = chat_data_cache[chat_id]  # Get data from cache
                     else:
-                        data = await client.get_chat(chat_id)  
-                        chat_data_cache[chat_id] = data 
+                        data = await client.get_chat(chat_id)  # Fetch from API
+                        chat_data_cache[chat_id] = data  # Store in cache
 
                     cname = data.title
 
+                    # Handle private channels and links
                     if REQFSUB and not data.username: 
                         link = await db.get_stored_reqLink(chat_id)
                         await db.add_reqChannel(chat_id)
@@ -369,6 +372,7 @@ async def not_joined(client: Client, message: Message):
                     else:
                         link = data.invite_link
 
+                    # Add button for the chat
                     buttons.append([InlineKeyboardButton(text='»  ᴊᴏɪɴ ᴄʜᴀɴɴᴇʟ  «', url=link)])
                     count += 1
                     await temp.edit(f"<b>{'! ' * count}</b>")
@@ -377,10 +381,12 @@ async def not_joined(client: Client, message: Message):
                     print(f"Can't Export Channel Name and Link..., Please Check If the Bot is admin in the FORCE SUB CHANNELS:\nProvided Force sub Channel:- {chat_id}")
                     return await temp.edit(f"<b>! ᴇʀʀᴏʀ, ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @urr_sanjiii</b>\n<blockquote expandable><b>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>")
 
+        # If user has joined all channels, delete temp and return (success - they're verified)
         if count == 0:
             await temp.delete()
             return 
 
+        # Add /byt links (always show if they exist, regardless of REQFSUB)
         try:
             byt_links = await db.get_all_fsub_button_links()
             if byt_links:
@@ -389,14 +395,14 @@ async def not_joined(client: Client, message: Message):
         except Exception as e:
             logging.info(f"No /byt links to add: {e}")
 
+        # Add "now click here" button last
         try:
             buttons.append([InlineKeyboardButton(text='‼️ ɴᴏᴡ ᴄʟɪᴄᴋ ʜᴇʀᴇ ‼️', url=f"https://t.me/{client.username}?start={message.command[1]}")])
         except IndexError:
             pass
 
-        # DIRECT LINK DAALEIN YAHAN
         await message.reply_photo(
-            photo="YOUR_DIRECT_JPG_LINK_HERE",
+            photo=random.choice(PICS),
             caption=FORCE_MSG.format(
                 first=message.from_user.first_name,
                 last=message.from_user.last_name,
@@ -407,9 +413,12 @@ async def not_joined(client: Client, message: Message):
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as e:
-        print(f"Error: {e}") 
+        print(f"Error: {e}")  # Print the error message for debugging
+        # Optionally, send an error message to the user or handle further actions here
         await temp.edit(f"<b><i>! ᴇʀʀᴏʀ, ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @urr_sanjiii</i></b>\n<blockquote expandable><b>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>")
 
+
+# +++ Customised By Rohit [telegram username: @rohit_1888] +++
 
 #=====================================================================================##
 #......... RESTART COMMAND FOR RESTARTING BOT .......#
@@ -420,10 +429,13 @@ async def restart_bot(client: Client, message: Message):
     print("Restarting bot...")
     msg = await message.reply(text=f"<b><i>» {client.name} ɢᴏɪɴɢ ᴛᴏ ʀᴇsᴛᴀʀᴛ...\n\n» ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ ғᴏʀ 5 sᴇᴄᴏɴᴅs...!!!</i></b>")
     try:
-        await asyncio.sleep(5)  
+        await asyncio.sleep(5)  # Wait for 5 seconds before restarting
         await msg.delete()
-        args = [sys.executable, "main.py"]  
+        args = [sys.executable, "main.py"]  # Adjust this if your start file is named differently
         os.execl(sys.executable, *args)
     except Exception as e:
         print(f"Error occured while Restarting the bot: {e}")
         return await msg.edit_text(f"<b>! ᴇʀʀᴏʀ, ᴄᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @urr_sanjiii</b>\n<blockquote expandable><b>ʀᴇᴀsᴏɴ:</b> {e}</blockquote>")
+    # Optionally, you can add cleanup tasks here
+    #subprocess.Popen([sys.executable, "main.py"])  # Adjust this if your start file is named differently
+    #sys.exit()

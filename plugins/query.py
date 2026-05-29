@@ -157,11 +157,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         user_link = f"https://t.me/{user.username}" if user.username else f"tg://openmessage?user_id={OWNER_ID}" 
         ownername = f"<a href={user_link}>{user.first_name}</a>" if user.first_name else f"<a href={user_link}>no name !</a>"
         await query.edit_message_media(
- advanced-publishing-features-1252405826641699058
             InputMediaPhoto("https://i.ibb.co/GvD95yh5/Picsart-26-05-29-05-43-41-375.png",
-
-            InputMediaPhoto("https://graph.org/file/b8cfa92c88dc837eb0eb7-37dc1d2a8e992fb176.jpg",
- main
                             ABOUT_TXT.format(
                                 botname = client.name,
                                 ownername = ownername, 
@@ -246,7 +242,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
             ),
             reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
-                    [InlineKeyboardButton(text="sᴇᴛᴛɪɴɢs", callback_data='setting', style='danger'),
+                    [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
                      InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
                     [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
                 ]),
