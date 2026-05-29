@@ -103,8 +103,8 @@ def style_anime_title(title):
 def get_anime_emoji(title):
     emojis = ["✨", "🌟", "💫", "🔥", "💥", "🌸", "🎉", "🎇", "🎆", "⚡"]
     return emojis[hash(title) % len(emojis)]
-# Provide or Make Button by takiing required modes and data
 
+# Provide or Make Button by takiing required modes and data
 def buttonStatus(pc_data: str, hc_data: str, cb_data: str) -> list:
     button = [
         [
@@ -126,8 +126,6 @@ def buttonStatus(pc_data: str, hc_data: str, cb_data: str) -> list:
     return button
 
 # Verify user, if he/she is admin or owner before processing the query...
-
-
 async def authoUser(query, id, owner_only=False):
     if not owner_only:
         if not any([id == OWNER_ID, await db.admin_exist(id)]):
@@ -156,16 +154,26 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         user = await client.get_users(OWNER_ID)
         user_link = f"https://t.me/{user.username}" if user.username else f"tg://openmessage?user_id={OWNER_ID}" 
         ownername = f"<a href={user_link}>{user.first_name}</a>" if user.first_name else f"<a href={user_link}>no name !</a>"
-        await query.edit_message_media(
+        
+        await query.edit_message_media
+          
             InputMediaPhoto("https://i.ibb.co/GvD95yh5/Picsart-26-05-29-05-43-41-375.png",
                             ABOUT_TXT.format(
                                 botname = client.name,
                                 ownername = ownername, 
                             )
+
+            media=InputMediaPhoto(
+                media="https://graph.org/file/b8cfa92c88dc837eb0eb7-37dc1d2a8e992fb176.jpg",
+                caption=ABOUT_TXT.format(
+                    botname=client.name,
+                    ownername=ownername, 
+                )
+
             ),
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton('• ʙᴀᴄᴋ', callback_data='start'), InlineKeyboardButton('sᴛᴀᴛs •', callback_data='setting')]
-            ]),
+            ])
         )
                 
     elif query.data == "plan":
@@ -231,14 +239,16 @@ async def cb_handler(client: Bot, query: CallbackQuery):
     elif data == "start":
         mention_html = f"<a href='tg://user?id={query.from_user.id}'>{query.from_user.first_name}</a>"
         await query.edit_message_media(
-            InputMediaPhoto(random.choice(PICS),
-                            START_MSG.format(
-                                first=query.from_user.first_name,
-                                last=query.from_user.last_name,
-                                username=None if not query.from_user.username else '@' + query.from_user.username,
-                                mention=mention_html,
-                                id=query.from_user.id
-            )
+            media=InputMediaPhoto(
+                media="https://graph.org/file/b9ea4b52384f13417e04a-0c31608668400ea8a3.jpg",  # <-- YAHAN APNA START WALA LINK PASTE KARNA
+                caption=START_MSG.format(
+                    first=query.from_user.first_name,
+                    last=query.from_user.last_name,
+                    username=None if not query.from_user.username else '@' + query.from_user.username,
+                    mention=mention_html,
+                    id=query.from_user.id
+                ),
+                has_spoiler=True
             ),
             reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
@@ -645,7 +655,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
 
     elif data == 'clear_links':
         # if await authoUser(query, query.from_user.id, owner_only=True) :
-        # await query.answer("♻️ Qᴜᴇʀʏ Pʀᴏᴄᴇssɪɴɢ....")
+        # await query.answer("♻️ Qᴜᴇʀʏ Pʀᴏssɪɴɢ....")
 
         try:
             REQFSUB_CHNLS = await db.get_reqLink_channels()
@@ -797,8 +807,6 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         # Enable shortener, prompt for URL and API Key
             await query.answer("» sʜᴏʀᴛɴᴇʀ ᴇɴᴀʙʟᴇᴅ ✅. ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴛʜᴇ sʜᴏʀᴛɴᴇʀ ᴜʀʟ ᴀɴᴅ ᴀᴘɪ ᴋᴇʏ.", show_alert=True)
             await query.message.reply("» sᴇɴᴅ ᴛʜᴇ 𝐒𝐇𝐎𝐑𝐓𝐍𝐄𝐑 𝐔𝐑𝐋 ᴀɴᴅ 𝐀𝐏𝐈 𝐊𝐄𝐘 ɪɴ ᴛʜᴇ ғᴏʀᴍᴀᴛ:\n`<shortener_url> <api_key>`")
-
-
 
 
     elif data == 'set_shortener_details':
