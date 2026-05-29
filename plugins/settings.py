@@ -82,9 +82,9 @@ FONT_TEXT = """≡ Current Style: Small Caps
 ◉ CONFIGURE FONT OPTIONS BELOW: ❞"""
 
 # FIX: New Main Settings Image
-TEMPLATE_PIC = "https://ibb.co/p691TdFL"
+TEMPLATE_PIC = "https://i.ibb.co/nq5wyjJL/Picsart-26-05-27-09-56-04-127.png"
 # FIX: New Template 1 Preview Image
-TEMPLATE_1_PIC = "https://ibb.co/1G9m6Ldz"
+TEMPLATE_1_PIC = "https://i.ibb.co/jkLrRTWJ/New-Project-10-Copy-Copy-F7-B2-D49.png"
 
 WAIT_MSG = "<blockquote><b>> › > ᴡᴀɪᴛ ᴀ sᴇᴄᴏɴᴅ...</b></blockquote>"
 
@@ -226,7 +226,7 @@ async def anime_template_cb(client: Client, query: CallbackQuery):
         [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
     ])
     text = apply_small_caps("◉ Select Template For Anime") + f"\n\n- " + apply_small_caps(f"Current: Template {current_template}")
-    pic_to_use = TEMPLATE_1_PIC if current_template == 1 else ("https://ibb.co/fdXDPcRn" if current_template == 2 else TEMPLATE_PIC)
+    pic_to_use = TEMPLATE_1_PIC if current_template == 1 else ("https://i.ibb.co/60yXfdh1/New-Project-10-Copy-Copy-B457-AB0.png" if current_template == 2 else TEMPLATE_PIC)
 
     try:
         await query.edit_message_media(media=InputMediaPhoto(pic_to_use, caption=header + text), reply_markup=keyboard)
