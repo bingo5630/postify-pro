@@ -311,7 +311,7 @@ async def start_command(client: Client, message: Message):
         
         # DIRECT LINK DAALEIN YAHAN
         await message.reply_photo(
-            photo = "YOUR_DIRECT_JPG_LINK_HERE",
+            photo = "https://graph.org/file/b9ea4b52384f13417e04a-0c31608668400ea8a3.jpg",
             caption = START_MSG.format(
                 first = message.from_user.first_name,
                 last = message.from_user.last_name,
