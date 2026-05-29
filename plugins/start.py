@@ -303,8 +303,8 @@ async def start_command(client: Client, message: Message):
     else:
         reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
-                    [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
-                     InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
+                    [InlineKeyboardButton(text="• sᴇᴛᴛɪɴɢs", callback_data='setting', style='danger'),
+                     InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ •', callback_data='settings_main', style='danger')],
                     [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
                 ])
         mention_html = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
