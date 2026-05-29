@@ -232,7 +232,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         mention_html = f"<a href='tg://user?id={query.from_user.id}'>{query.from_user.first_name}</a>"
         await query.edit_message_media(
             media=InputMediaPhoto(
-                media="YOUR_START_IMAGE_TELEGRAPH_LINK_HERE",  # <-- YAHAN APNA START WALA LINK PASTE KARNA
+                media="https://graph.org/file/b9ea4b52384f13417e04a-0c31608668400ea8a3.jpg",  # <-- YAHAN APNA START WALA LINK PASTE KARNA
                 caption=START_MSG.format(
                     first=query.from_user.first_name,
                     last=query.from_user.last_name,
