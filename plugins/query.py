@@ -157,7 +157,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         user_link = f"https://t.me/{user.username}" if user.username else f"tg://openmessage?user_id={OWNER_ID}" 
         ownername = f"<a href={user_link}>{user.first_name}</a>" if user.first_name else f"<a href={user_link}>no name !</a>"
         await query.edit_message_media(
-            InputMediaPhoto("https://graph.org/file/0c1deac4eae31f7919a9e-255eee8322a7fbecf1.jpg", 
+            InputMediaPhoto("https://ibb.co/990hr6Mr",
                             ABOUT_TXT.format(
                                 botname = client.name,
                                 ownername = ownername, 
@@ -229,21 +229,22 @@ async def cb_handler(client: Bot, query: CallbackQuery):
             print(f"! Error Occurred on callback data = 'setting' : {e}")
 
     elif data == "start":
+        mention_html = f"<a href='tg://user?id={query.from_user.id}'>{query.from_user.first_name}</a>"
         await query.edit_message_media(
             InputMediaPhoto(random.choice(PICS),
                             START_MSG.format(
                                 first=query.from_user.first_name,
                                 last=query.from_user.last_name,
                                 username=None if not query.from_user.username else '@' + query.from_user.username,
-                                mention=query.from_user.mention,
+                                mention=mention_html,
                                 id=query.from_user.id
             )
             ),
             reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
-                    [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
-                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main')],
-                    [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req')],
+                    [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
+                    [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
+                     InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
+                    [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
                 ]),
         )
 
