@@ -37,7 +37,7 @@ TG_BOT_WORKERS = int(os.environ.get("TG_BOT_WORKERS", "4"))
 PICS = (os.environ.get("PICS", "https://i.ibb.co/S43S67Pf/Picsart-26-05-29-05-43-05-096.png")).split() #Required
 
 PICS = (os.environ.get("PICS", "https://graph.org/file/8195f2ba9ec35e5673ae9-17a0119f790f64e3b3.jpg")).split() #Required
- main
+ 
 #set your Custom Caption here, Keep None for Disable Custom Caption
 CUSTOM_CAPTION = os.environ.get("CUSTOM_CAPTION", None)
 
