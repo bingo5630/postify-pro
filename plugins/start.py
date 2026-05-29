@@ -1,6 +1,8 @@
 # +++ ᴜɪ ʙʏ ᴀʜᴍᴇᴅ [telegram username: @ᴜʀʀ_sᴀɴᴊɪɪɪ] +++
 
 import asyncio
+import aiohttp
+from bs4 import BeautifulSoup
 from plugins.wait_manager import show_wait
 import base64
 import logging
@@ -28,6 +30,36 @@ from datetime import datetime, timedelta
 from pytz import timezone
 
 # +++ ᴜɪ ʙʏ ᴀʜᴍᴇᴅ [telegram username: @ᴜʀʀ_sᴀɴᴊɪɪɪ] +++
+
+# Cache to store extracted direct image URLs so it only scrapes ONCE
+IMAGE_CACHE = {}
+
+async def get_direct_image_url(url: str) -> str:
+    """Fetches the direct image URL from an ImgBB viewer link and caches it."""
+    # If it's already cached, return it instantly
+    if url in IMAGE_CACHE:
+        return IMAGE_CACHE[url]
+        
+    # If it's not an ImgBB link, just return as is
+    if not url.startswith("https://ibb.co/") and not url.startswith("http://ibb.co/"):
+        return url
+        
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                html = await response.text()
+                soup = BeautifulSoup(html, 'html.parser')
+                meta_tag = soup.find('meta', property='og:image')
+                if meta_tag and meta_tag.get('content'):
+                    direct_url = meta_tag['content']
+                    IMAGE_CACHE[url] = direct_url
+                    return direct_url
+    except Exception as e:
+        logging.error(f"Error scraping image URL: {e}")
+        
+    # Fallback to the original URL if extraction fails
+    return url
+
 
 # Track (user_id, link_param) pairs who already saw /byt forcesub for a specific link
 byt_fsub_seen = set()
@@ -210,9 +242,13 @@ async def start_command(client: Client, message: Message):
                         byt_buttons.append([InlineKeyboardButton(text='‼️ ɴᴏᴡ ᴄʟɪᴄᴋ ʜᴇʀᴇ ‼️', url=f"https://t.me/{client.username}?start={message.command[1]}")])
                     except IndexError:
                         pass
+                    
+                    # Fetch Image dynamically
+                    fsub_img_url = await get_direct_image_url("https://ibb.co/wFztdrRc")
+
                     await client.send_photo(
                         chat_id=id,
-                        photo=FORCE_PIC if FORCE_PIC else random.choice(PICS),
+                        photo=fsub_img_url,
                         caption=FORCE_MSG.format(
                             first=message.from_user.first_name,
                             last=message.from_user.last_name,
@@ -309,8 +345,12 @@ async def start_command(client: Client, message: Message):
                     [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
                 ])
         mention_html = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
+        
+        # EXTRACT IMAGE DIRECT URL (CACHED)
+        start_img_url = await get_direct_image_url("https://ibb.co/wFztdrRc")
+
         await message.reply_photo(
-            photo = random.choice(PICS),
+            photo = start_img_url,
             caption = START_MSG.format(
                 first = message.from_user.first_name,
                 last = message.from_user.last_name,
@@ -319,7 +359,7 @@ async def start_command(client: Client, message: Message):
                 id = message.from_user.id
             ),
             reply_markup = reply_markup,
-		has_spoiler = True
+            has_spoiler = True
         )
         try: await message.delete()
         except: pass
@@ -401,8 +441,11 @@ async def not_joined(client: Client, message: Message):
         except IndexError:
             pass
 
+        # EXTRACT IMAGE DIRECT URL (CACHED)
+        not_joined_img_url = await get_direct_image_url("https://ibb.co/wFztdrRc")
+
         await message.reply_photo(
-            photo=random.choice(PICS),
+            photo=not_joined_img_url,
             caption=FORCE_MSG.format(
                 first=message.from_user.first_name,
                 last=message.from_user.last_name,
