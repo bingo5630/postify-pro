@@ -220,8 +220,7 @@ async def start_command(client: Client, message: Message):
                             mention=message.from_user.mention,
                             id=message.from_user.id
                         ),
-                        reply_markup=InlineKeyboardMarkup(byt_buttons),
-                        message_effect_id=5104841245755180586
+                        reply_markup=InlineKeyboardMarkup(byt_buttons)
                     )
                     return  # Stop here - user must click 'now click here' again to get files
                 # If already seen for this link, just continue to deliver files
@@ -320,8 +319,7 @@ async def start_command(client: Client, message: Message):
                 id = message.from_user.id
             ),
             reply_markup = reply_markup,
-		has_spoiler = True,
-	        message_effect_id=5104841245755180586 #🔥
+		has_spoiler = True
         )
         try: await message.delete()
         except: pass
@@ -412,8 +410,7 @@ async def not_joined(client: Client, message: Message):
                 mention=message.from_user.mention,
                 id=message.from_user.id
             ),
-            reply_markup=InlineKeyboardMarkup(buttons),
-    message_effect_id=5104841245755180586  #🔥 Add the effect ID here
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as e:
         print(f"Error: {e}")  # Print the error message for debugging
