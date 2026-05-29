@@ -100,50 +100,59 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     if template_version == 2 and color_hex:
         base_template = colorize_template_2(base_template, color_hex).convert('RGBA')
 
-    try:
-        fetched_mask = Image.open(HEX_MASK_PATH).convert('L')
-    except:
-        fetched_mask = Image.new('L', base_template.size, 0)
-
-    fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
-    
-    strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
-    expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
-    inverse_mask = ImageOps.invert(expanded_mask)
-    
-    r, g, b, a = base_template.split()
-    punched_alpha = ImageChops.darker(a, inverse_mask) 
-    base_template.putalpha(punched_alpha)
-    
-    # 16:9 Blurred Background Layer
-    blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
-    blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
-    blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
-    anime_artwork = blurred_bg.convert('RGBA')
-    
-    bbox = strict_mask.getbbox()
-    if not bbox:
-        bbox = (0, 0, 1920, 1080)
-        
-    mask_h = bbox[3] - bbox[1]
-    mask_w = bbox[2] - bbox[0]
-    
-    # Universal Zoom Fit Setup (No blurred sides)
-    if crop_state == 1:
-        v_center = 0.0 # Top Focus
-    elif crop_state == 2:
-        v_center = 1.0 # Bottom Focus
+    # If Poster 2 AND no custom image is sent (i.e. skipped fanart)
+    # Then DO NOT punch out the mask. The fanart should sit cleanly below without hexagonal cutout.
+    if template_version == 2 and not custom_image_path:
+        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+        anime_artwork = enhance_image(anime_artwork)
+        final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
+        final_img.paste(anime_artwork, (0, 0))
+        final_img.paste(base_template, (0, 0), base_template)
     else:
-        v_center = 0.5 # Center Focus (Default)
+        try:
+            fetched_mask = Image.open(HEX_MASK_PATH).convert('L')
+        except:
+            fetched_mask = Image.new('L', base_template.size, 0)
 
-    fitted = ImageOps.fit(anime_img, (mask_w, mask_h), method=Image.Resampling.LANCZOS, centering=(0.5, v_center))
-    anime_artwork.paste(fitted, (bbox[0], bbox[1]))
+        fetched_mask = fetched_mask.resize(base_template.size, Image.Resampling.LANCZOS)
 
-    anime_artwork = enhance_image(anime_artwork)
-    
-    final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
-    final_img.paste(anime_artwork, (0, 0)) 
-    final_img.paste(base_template, (0, 0), base_template) 
+        strict_mask = fetched_mask.point(lambda p: 255 if p > 128 else 0)
+        expanded_mask = strict_mask.filter(ImageFilter.MaxFilter(7))
+        inverse_mask = ImageOps.invert(expanded_mask)
+
+        r, g, b, a = base_template.split()
+        punched_alpha = ImageChops.darker(a, inverse_mask)
+        base_template.putalpha(punched_alpha)
+
+        # 16:9 Blurred Background Layer
+        blurred_bg = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+        blurred_bg = blurred_bg.filter(ImageFilter.GaussianBlur(35))
+        blurred_bg = ImageEnhance.Brightness(blurred_bg).enhance(0.5)
+        anime_artwork = blurred_bg.convert('RGBA')
+
+        bbox = strict_mask.getbbox()
+        if not bbox:
+            bbox = (0, 0, 1920, 1080)
+
+        mask_h = bbox[3] - bbox[1]
+        mask_w = bbox[2] - bbox[0]
+
+        # Universal Zoom Fit Setup (No blurred sides)
+        if crop_state == 1:
+            v_center = 0.0 # Top Focus
+        elif crop_state == 2:
+            v_center = 1.0 # Bottom Focus
+        else:
+            v_center = 0.5 # Center Focus (Default)
+
+        fitted = ImageOps.fit(anime_img, (mask_w, mask_h), method=Image.Resampling.LANCZOS, centering=(0.5, v_center))
+        anime_artwork.paste(fitted, (bbox[0], bbox[1]))
+
+        anime_artwork = enhance_image(anime_artwork)
+
+        final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
+        final_img.paste(anime_artwork, (0, 0))
+        final_img.paste(base_template, (0, 0), base_template)
 
     draw = ImageDraw.Draw(final_img)
 
@@ -214,16 +223,21 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     x_offset = 80
     y_dynamic_offset = 280
 
+    try:
+        font_colored_title_enlarged = ImageFont.truetype(os.path.join(FONTS_DIR, "Roboto Black.ttf"), 75)
+    except:
+        font_colored_title_enlarged = font_colored_title
+
     for i, line in enumerate(title_lines):
         if i == 0:
             fill_color = "grey" if template_version == 2 else "white"
             draw.text((x_offset, y_dynamic_offset), line, font=font_main_white, fill=fill_color)
             y_dynamic_offset += 100 
         else:
-            draw.text((x_offset, y_dynamic_offset), line, font=font_colored_title, fill=color_hex)
-            y_dynamic_offset += 75 
+            draw.text((x_offset, y_dynamic_offset), line, font=font_colored_title_enlarged, fill=color_hex)
+            y_dynamic_offset += 85
 
-    y_dynamic_offset += 20
+    y_dynamic_offset += 30 if template_version == 2 else 20
     draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill=color_hex)
 
     synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) 
@@ -231,7 +245,7 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         synopsis = synopsis[:synopsis_dynamic_max_chars].rsplit(' ', 1)[0] + "...read more"
     wrapped_synopsis = textwrap.fill(synopsis, width=45)
 
-    y_dynamic_offset += 60
+    y_dynamic_offset += 70 if template_version == 2 else 60
     draw.text((x_offset, y_dynamic_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
 
     brand_x = 80
@@ -246,7 +260,8 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
         except Exception:
             pass 
 
-    draw.text((brand_x, brand_y + 15), username, font=font_brand, fill="white")
+    brand_color = color_hex if template_version == 2 else "white"
+    draw.text((brand_x, brand_y + 15), username, font=font_brand, fill=brand_color)
 
     buf = io.BytesIO()
     final_img.save(buf, format='PNG')

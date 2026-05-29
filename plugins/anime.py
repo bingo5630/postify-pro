@@ -297,9 +297,16 @@ async def handle_anime_thumb_custom(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    await callback_query.answer("Please send the custom photo now.")
+    await callback_query.answer("Please send the custom photo/document now.")
     try:
-        response = await client.ask(user_id, "Send the custom image for the poster now:", filters=filters.photo, timeout=60)
+        response = await client.ask(user_id, "Send the custom image (as a photo or document) for the poster now:", filters=(filters.photo | filters.document), timeout=60)
+
+        if response.document:
+            mime = response.document.mime_type
+            if not mime or not mime.startswith('image/'):
+                await client.send_message(user_id, "Please upload a valid image document (PNG, JPG).")
+                raise StopPropagation
+
         photo_path = await response.download()
         user_data[user_id]['custom_image'] = photo_path
         await anime_audio_menu(client, callback_query)
