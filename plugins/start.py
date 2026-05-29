@@ -1,7 +1,6 @@
 # +++ ᴜɪ ʙʏ ᴀʜᴍᴇᴅ [telegram username: @ᴜʀʀ_sᴀɴᴊɪɪɪ] +++
 
 import asyncio
-from plugins.wait_manager import show_wait
 import base64
 import logging
 import os
@@ -37,7 +36,6 @@ add_channel_state = {}
 
 @Bot.on_callback_query(filters.regex('^add_channel_req$'), group=-1)
 async def add_channel_req_cb(client: Client, query: CallbackQuery):
-    await show_wait(query)
     user_id = query.from_user.id
     add_channel_state[user_id] = True
 
@@ -56,44 +54,22 @@ To add a channel, you have two options:
 Note: You must be an administrator in the channel for the bot to work.</blockquote>"""
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="cancel_add_channel"), InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="cancel_add_channel")]
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="cancel_add_channel")]
     ])
 
     if query.message.photo:
-        try: await query.edit_message_caption(caption=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-        except Exception: pass
+        await query.message.delete()
+        await client.send_message(chat_id=user_id, text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
     else:
-        try: await query.edit_message_text(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-        except Exception: pass
+        await query.edit_message_text(text=msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
 @Bot.on_callback_query(filters.regex('^cancel_add_channel$'), group=-1)
 async def cancel_add_channel_cb(client: Client, query: CallbackQuery):
-    await show_wait(query)
     user_id = query.from_user.id
     if user_id in add_channel_state:
         del add_channel_state[user_id]
-
-    reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
-        [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
-         InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
-        [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
-    ])
-    mention_html = f"<a href='tg://user?id={query.from_user.id}'>{query.from_user.first_name}</a>"
-    start_text = START_MSG.format(
-        first = query.from_user.first_name,
-        last = query.from_user.last_name,
-        username = None if not query.from_user.username else '@' + query.from_user.username,
-        mention = mention_html,
-        id = query.from_user.id
-    )
-
-    try:
-        if query.message.photo:
-            await query.edit_message_caption(caption=start_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-        else:
-            await query.edit_message_text(text=start_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-    except Exception: pass
+    await query.message.delete()
+    await query.answer("Add channel process canceled.")
 
 from pyrogram.types import ChatMemberUpdated
 from pyrogram.enums import ChatMemberStatus
@@ -220,7 +196,8 @@ async def start_command(client: Client, message: Message):
                             mention=message.from_user.mention,
                             id=message.from_user.id
                         ),
-                        reply_markup=InlineKeyboardMarkup(byt_buttons)
+                        reply_markup=InlineKeyboardMarkup(byt_buttons),
+                        message_effect_id=5104841245755180586
                     )
                     return  # Stop here - user must click 'now click here' again to get files
                 # If already seen for this link, just continue to deliver files
@@ -303,23 +280,23 @@ async def start_command(client: Client, message: Message):
 
     else:
         reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton(text="• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style='primary')],
-                    [InlineKeyboardButton(text="SETTINGS", callback_data='setting', style='danger'),
-                     InlineKeyboardButton(text='ᴘᴏsᴛᴇʀ', callback_data='settings_main', style='danger')],
-                    [InlineKeyboardButton(text="➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style='success')],
+                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
+                    [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
+                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main')],
+                    [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req')],
                 ])
-        mention_html = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
         await message.reply_photo(
             photo = random.choice(PICS),
             caption = START_MSG.format(
                 first = message.from_user.first_name,
                 last = message.from_user.last_name,
                 username = None if not message.from_user.username else '@' + message.from_user.username,
-                mention = mention_html,
+                mention = message.from_user.mention,
                 id = message.from_user.id
             ),
             reply_markup = reply_markup,
-		has_spoiler = True
+		has_spoiler = True,
+	        message_effect_id=5104841245755180586 #🔥
         )
         try: await message.delete()
         except: pass
@@ -410,7 +387,8 @@ async def not_joined(client: Client, message: Message):
                 mention=message.from_user.mention,
                 id=message.from_user.id
             ),
-            reply_markup=InlineKeyboardMarkup(buttons)
+            reply_markup=InlineKeyboardMarkup(buttons),
+    message_effect_id=5104841245755180586  #🔥 Add the effect ID here
         )
     except Exception as e:
         print(f"Error: {e}")  # Print the error message for debugging

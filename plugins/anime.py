@@ -1,7 +1,6 @@
 import re
 import time
 import asyncio
-from plugins.wait_manager import show_wait
 import aiohttp
 import urllib.parse
 from pyrogram import filters
@@ -19,16 +18,16 @@ FANART_API_KEY = "dde00a3fdd2498bf1f664e686bd951ce"
 
 COLORS = [
     {"name": "ORANGE", "hex": "#FF6B00", "url": "assets/template.png"},
-    {"name": "GREEN", "hex": "#28a745", "url": "https://i.ibb.co/9kBMcywx/New-Project-10-Copy-Copy-60-F2-A8-A.png"},
-    {"name": "TURQUOISE", "hex": "#40E0D0", "url": "https://i.ibb.co/XZBKQvs3/New-Project-10-Copy-Copy-B12-C259.png"},
-    {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://i.ibb.co/HvcD2fb/New-Project-10-Copy-Copy-049-FC50.png"},
-    {"name": "PINK", "hex": "#FF69B4", "url": "https://i.ibb.co/chV9jvtX/New-Project-10-Copy-Copy-C789413.png"},
-    {"name": "BLUE", "hex": "#007BFF", "url": "https://i.ibb.co/s9wF4DFs/New-Project-10-Copy-Copy-C9999-D5.png"},
-    {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://i.ibb.co/MxzRmf5X/New-Project-10-Copy-Copy-27-A0219.png"},
-    {"name": "RED", "hex": "#DC143C", "url": "https://i.ibb.co/cKZCt7qm/New-Project-10-Copy-Copy-B10-AC8-E.png"},
-    {"name": "TEAL BLUE", "hex": "#20B2AA", "url": "https://i.ibb.co/0Rpny4zz/New-Project-10-Copy-Copy-984-B6-D5.png"},
-    {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://i.ibb.co/Kpz823Hx/New-Project-10-Copy-Copy-DACF801.png"},
-    {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://i.ibb.co/Xrzn3331/New-Project-10-Copy-Copy-6-ED17-E1.png"}
+    {"name": "GREEN", "hex": "#28a745", "url": "https://ibb.co/G4GhnCsZ"},
+    {"name": "TURQUOISE", "hex": "#40E0D0", "url": "https://ibb.co/1fVPgwqd"},
+    {"name": "DARK YELLOW", "hex": "#DAA520", "url": "https://ibb.co/yTznRcZ"},
+    {"name": "PINK", "hex": "#FF69B4", "url": "https://ibb.co/b5DVk3LR"},
+    {"name": "BLUE", "hex": "#007BFF", "url": "https://ibb.co/pjz3Ts34"},
+    {"name": "PALE GREEN", "hex": "#98FB98", "url": "https://ibb.co/C3jnf6sr"},
+    {"name": "RED", "hex": "#DC143C", "url": "https://ibb.co/9m1V2CPM"},
+    {"name": "TEAL BLUE", "hex": "#20B2AA", "url": "https://ibb.co/LXD0djss"},
+    {"name": "DARK PURPLE", "hex": "#483D8B", "url": "https://ibb.co/FLqd5jt4"},
+    {"name": "PURPLE", "hex": "#8A2BE2", "url": "https://ibb.co/yc8zYYYt"}
 ]
 
 async def fetch_extra_images(title_eng, title_rom, mal_id=None):
@@ -162,7 +161,7 @@ async def anime_cmd(client: Bot, message: Message):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Anilist"), callback_data="search_anilist"),
          InlineKeyboardButton(apply_small_caps("MyAnimeList"), callback_data="search_mal")],
-        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
 
     await message.reply_text(f"SELECT SOURCE FOR: {query}", reply_markup=keyboard)
@@ -183,15 +182,15 @@ async def handle_anilist_search(client: Bot, callback_query: CallbackQuery):
         results = await fetch_anime_search(query, "anilist")
         user_data[user_id]['results'] = results
         if not results:
-            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
+            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
             raise StopPropagation
 
         buttons = [[InlineKeyboardButton(anime['title']['english'] or anime['title']['romaji'], callback_data=f"sel_ani_{i}")] for i, anime in enumerate(results)]
-        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")])
+        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")])
 
         await callback_query.message.edit_text(f"SEARCH RESULTS (ANILIST):", reply_markup=InlineKeyboardMarkup(buttons))
     except Exception as e:
-        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
+        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
     raise StopPropagation
 
 
@@ -210,15 +209,15 @@ async def handle_mal_search(client: Bot, callback_query: CallbackQuery):
         results = await fetch_anime_search(query, "mal")
         user_data[user_id]['results'] = results
         if not results:
-            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
+            await callback_query.message.edit_text("No results found.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
             raise StopPropagation
 
         buttons = [[InlineKeyboardButton(anime['title']['english'] or anime['title']['romaji'], callback_data=f"sel_mal_{i}")] for i, anime in enumerate(results)]
-        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")])
+        buttons.append([InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")])
 
         await callback_query.message.edit_text(f"SEARCH RESULTS (MAL):", reply_markup=InlineKeyboardMarkup(buttons))
     except Exception as e:
-        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]]))
+        await callback_query.message.edit_text(f"❌ Error: {str(e)}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]]))
     raise StopPropagation
 
 
@@ -240,7 +239,7 @@ def get_initial_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(apply_small_caps("Custom Img"), callback_data="anime_thumb_custom"),
          InlineKeyboardButton(apply_small_caps("Skip"), callback_data="anime_audio_menu")],
-        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
 
 
@@ -271,16 +270,7 @@ async def handle_anime_select(client: Bot, callback_query: CallbackQuery):
     user_data[user_id]['images'] = images
 
     img_url = images[0] if images else "https://via.placeholder.com/1920x1080"
-
-    try:
-        current_template = await db.get_anime_template(user_id)
-    except Exception:
-        current_template = 1
-
-    if current_template == 2:
-        msg_text = "Please send the image as a DOCUMENT format (Ensure the background is erased/transparent)."
-    else:
-        msg_text = apply_small_caps("Poster selection ready. Send custom image or skip to proceed.")
+    msg_text = apply_small_caps("Poster selection ready. Send custom image or skip to proceed.")
 
     try:
         await callback_query.message.delete()
@@ -297,21 +287,9 @@ async def handle_anime_thumb_custom(client: Bot, callback_query: CallbackQuery):
         await callback_query.answer("Session expired.", show_alert=True)
         raise StopPropagation
 
-    await callback_query.answer("Please send the custom photo/document now.")
+    await callback_query.answer("Please send the custom photo now.")
     try:
-        response = await client.ask(
-            user_id,
-            "Send the custom image (as a photo or document) for the poster now:",
-            filters=(filters.photo | filters.document),
-            timeout=60
-        )
-
-        if response.document:
-            mime = response.document.mime_type
-            if not mime or not mime.startswith('image/'):
-                await client.send_message(user_id, "Please upload a valid image document (PNG, JPG).")
-                raise StopPropagation
-
+        response = await client.ask(user_id, "Send the custom image for the poster now:", filters=filters.photo, timeout=60)
         photo_path = await response.download()
         user_data[user_id]['custom_image'] = photo_path
         await anime_audio_menu(client, callback_query)
@@ -327,7 +305,7 @@ async def anime_audio_menu(client: Bot, callback_query: CallbackQuery):
         [InlineKeyboardButton("Hindi", callback_data="anime_audio_Hindi"), InlineKeyboardButton("English", callback_data="anime_audio_English")],
         [InlineKeyboardButton("Dual Audio", callback_data="anime_audio_Dual Audio"), InlineKeyboardButton("Multi Audio", callback_data="anime_audio_Multi Audio")],
         [InlineKeyboardButton("Jap & Eng", callback_data="anime_audio_Jap & Eng"), InlineKeyboardButton("Custom Text", callback_data="anime_audio_custom")],
-        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="start")]
+        [InlineKeyboardButton(apply_small_caps("Cancel"), callback_data="close_anime_menu")]
     ])
     msg_text = "Select Audio Language or send custom text:"
 
@@ -407,14 +385,6 @@ async def build_final_poster(client, callback_query, user_id):
 
     final_username = custom_text if custom_text else fallback_name
 
-    try:
-        from databases.database import db
-        current_template = await db.get_anime_template(user_id)
-    except Exception:
-        current_template = 1
-
-    template_to_use = color_info['url'] if current_template == 1 else "https://i.ibb.co/nsGJfkTK/New-Project-10-Copy-Copy-DBC511-C.png"
-
     poster_buf = await generate_poster(
         anime_img_url=image_url if not custom_image_path else None,
         custom_image_path=custom_image_path,
@@ -425,9 +395,8 @@ async def build_final_poster(client, callback_query, user_id):
         logo_url=custom_logo,    
         crop_state=crop_state,
         small_caps=False,
-        template_url=template_to_use,
-        color_hex=color_info['hex'],
-        template_version=current_template
+        template_url=color_info['url'], 
+        color_hex=color_info['hex']
     )
 
     try:
@@ -464,7 +433,7 @@ def get_final_keyboard(color_state):
         [InlineKeyboardButton("𝗠𝗢𝗩𝗘", callback_data="anime_final_move"),
          InlineKeyboardButton("𝗡𝗘𝗫𝗧 𝗜𝗠𝗔𝗚𝗘", callback_data="anime_final_next")],
         [InlineKeyboardButton(f"🎨 {color_name}", callback_data="anime_final_color")],
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start"),
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu"),
          InlineKeyboardButton("𝗗𝗢𝗡𝗘", callback_data="final_done")]
     ])
 
@@ -605,7 +574,7 @@ def get_channel_pagination_keyboard(channels, page=0):
     if pagination_row:
         keyboard_buttons.append(pagination_row)
 
-    keyboard_buttons.append([InlineKeyboardButton("𝗠𝗘𝗡𝗨", callback_data="start"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="start")])
+    keyboard_buttons.append([InlineKeyboardButton("𝗠𝗘𝗡𝗨", callback_data="close_anime_menu"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="close_anime_menu")])
     return InlineKeyboardMarkup(keyboard_buttons)
 
 async def process_publish_workflow(client: Bot, callback_query: CallbackQuery, user_id: int, page=0, edit_message=False):
@@ -651,24 +620,10 @@ def parse_anime_buttons(config_str: str, target_link: str) -> InlineKeyboardMark
             parts = btn_str.split('-', 1)
             if len(parts) == 2:
                 btn_text = parts[0].strip()
+                if btn_text.startswith('#'):
+                    btn_text = btn_text.split(' ', 1)[1] if ' ' in btn_text else btn_text
                 btn_url = parts[1].strip().replace('{link}', target_link)
-
-                # Check for Telegram color tags
-                btn_kwargs = {"text": btn_text, "url": btn_url}
-                if btn_text.startswith('#p '):
-                    btn_kwargs['text'] = btn_text[3:]
-                    btn_kwargs['style'] = 'primary'
-                elif btn_text.startswith('#g '):
-                    btn_kwargs['text'] = btn_text[3:]
-                    btn_kwargs['style'] = 'success'
-                elif btn_text.startswith('#r '):
-                    btn_kwargs['text'] = btn_text[3:]
-                    btn_kwargs['style'] = 'danger'
-                elif btn_text.startswith('#') and ' ' in btn_text:
-                    # Fallback stripping for unknown tags
-                    btn_kwargs['text'] = btn_text.split(' ', 1)[1]
-
-                row.append(InlineKeyboardButton(**btn_kwargs))
+                row.append(InlineKeyboardButton(btn_text, url=btn_url))
         if row:
             rows.append(row)
     return InlineKeyboardMarkup(rows) if rows else None
@@ -708,7 +663,6 @@ async def send_anime_post(client: Bot, user_id: int, chat_id: int, pin: bool = F
 
 @Bot.on_callback_query(filters.regex("^anime_pub_cancel_confirm$"), group=-1)
 async def handle_anime_pub_cancel_confirm(client: Bot, callback_query: CallbackQuery):
-    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
@@ -717,7 +671,6 @@ async def handle_anime_pub_cancel_confirm(client: Bot, callback_query: CallbackQ
 
 @Bot.on_callback_query(filters.regex("^anime_pub_confirm$"), group=-1)
 async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
-    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
         return await callback_query.answer("Session expired.", show_alert=True)
@@ -731,8 +684,8 @@ async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧", callback_data="anime_pub_send"), InlineKeyboardButton("𝗦𝗖𝗛𝗘𝗗𝗨𝗟𝗘", callback_data="anime_pub_schedule")],
         [InlineKeyboardButton("𝗦𝗘𝗡𝗗 𝗣𝗢𝗦𝗧 𝗧𝗢 𝗠𝗢𝗥𝗘 𝗖𝗛𝗔𝗡𝗡𝗘𝗟𝗦", callback_data="anime_pub_more")],
-        [InlineKeyboardButton("𝗣𝗜𝗡 𝗣𝗢𝗦𝗧", callback_data="anime_pub_pin"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="start")],
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start")]
+        [InlineKeyboardButton("𝗣𝗜𝗡 𝗣𝗢𝗦𝗧", callback_data="anime_pub_pin"), InlineKeyboardButton("𝗕𝗔𝗖𝗞", callback_data="anime_pub_back")],
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
     ])
 
     await callback_query.message.edit_text(msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
@@ -740,7 +693,6 @@ async def handle_anime_pub_confirm(client: Bot, callback_query: CallbackQuery):
 
 @Bot.on_callback_query(filters.regex(r"^anime_pub_ch_(-\d+|\d+)$"), group=-1)
 async def handle_anime_pub_ch(client: Bot, callback_query: CallbackQuery):
-    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
@@ -758,11 +710,10 @@ async def handle_anime_pub_ch(client: Bot, callback_query: CallbackQuery):
 
 @Bot.on_callback_query(filters.regex("^anime_pub_back$"), group=-1)
 async def handle_anime_pub_back(client: Bot, callback_query: CallbackQuery):
-    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data:
         return await callback_query.answer("Session expired.", show_alert=True)
-    await process_publish_workflow(client, callback_query, user_id, edit_message=True)
+    await process_publish_workflow(client, callback_query, user_id)
     raise StopPropagation
 
 @Bot.on_callback_query(filters.regex("^anime_pub_send$"), group=-1)
@@ -815,7 +766,6 @@ from datetime import datetime
 
 @Bot.on_callback_query(filters.regex("^anime_pub_schedule$"), group=-1)
 async def handle_anime_pub_schedule(client: Bot, callback_query: CallbackQuery):
-    await show_wait(callback_query)
     user_id = callback_query.from_user.id
     if user_id not in user_data or 'publish_chat_id' not in user_data[user_id]:
         return await callback_query.answer("Session expired.", show_alert=True)
@@ -831,7 +781,7 @@ Examples:
 <code>in 10 days 5 hours 2 minutes</code>
 <code>tomorrow at 12:00</code></blockquote>"""
 
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start")]])
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]])
 
     try:
         response = await client.ask(user_id, msg_text, reply_markup=keyboard, parse_mode=ParseMode.HTML, timeout=120)
@@ -874,27 +824,16 @@ Examples:
 
 @Bot.on_callback_query(filters.regex("^final_done$"), group=-1)
 async def handle_final_done(client: Bot, callback_query: CallbackQuery):
-    await show_wait(callback_query)
     user_id = callback_query.from_user.id
+    await callback_query.answer("Poster Done! Fetching channels...")
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="start")]
+        [InlineKeyboardButton("𝗖𝗔𝗡𝗖𝗘𝗟", callback_data="close_anime_menu")]
     ])
     try:
-        if callback_query.message.photo:
-            await callback_query.message.delete()
-            sent_msg = await client.send_message(user_id, "<blockquote>ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴍᴇ ᴛʜᴇ ʟɪɴᴋ ғᴏʀ ᴛʜᴇ ᴘᴏsᴛ/ᴅᴏᴡɴʟᴏᴀᴅ ʙᴜᴛᴛᴏɴ</blockquote>", reply_markup=keyboard, parse_mode=ParseMode.HTML)
-            response = await client.listen(chat_id=user_id, timeout=120)
-            user_data[user_id]['post_link'] = response.text
-            # Replace the link msg with process publish
-            callback_query.message = sent_msg
-        else:
-            sent_msg = await callback_query.edit_message_text("<blockquote>ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴍᴇ ᴛʜᴇ ʟɪɴᴋ ғᴏʀ ᴛʜᴇ ᴘᴏsᴛ/ᴅᴏᴡɴʟᴏᴀᴅ ʙᴜᴛᴛᴏɴ</blockquote>", reply_markup=keyboard, parse_mode=ParseMode.HTML)
-            response = await client.listen(chat_id=user_id, timeout=120)
-            user_data[user_id]['post_link'] = response.text
-            callback_query.message = sent_msg
-
-        await process_publish_workflow(client, callback_query, user_id, edit_message=True)
+        response = await client.ask(user_id, "<blockquote>ᴘʟᴇᴀsᴇ sᴇɴᴅ ᴍᴇ ᴛʜᴇ ʟɪɴᴋ ғᴏʀ ᴛʜᴇ ᴘᴏsᴛ/ᴅᴏᴡɴʟᴏᴀᴅ ʙᴜᴛᴛᴏɴ</blockquote>", reply_markup=keyboard, parse_mode=ParseMode.HTML, timeout=120)
+        user_data[user_id]['post_link'] = response.text
+        await process_publish_workflow(client, callback_query, user_id)
     except asyncio.TimeoutError:
         await client.send_message(user_id, "Publish process canceled due to timeout.")
     raise StopPropagation

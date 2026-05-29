@@ -6,11 +6,9 @@ autodel_cmd_pic = "https://telegra.ph/file/a64533814021b40057ccd.jpg"
 SET_SHORTENER_CMD_TXT = "sʜᴏʀᴛɴᴇʀ ɪs {shortener_status}. ᴜsᴇ ʙᴜᴛᴛᴏɴs ᴛᴏ ᴄᴏɴғɪɢᴜʀᴇ ᴛʜᴇ sʜᴏʀᴛɴᴇʀ."
 
 #start message
-START_MSG = """<blockquote>ʜᴇʟʟᴏ {mention},</blockquote>
-<blockquote>ɪ'ᴍ ᴀɴ ᴀᴜᴛᴏ ᴘᴏsᴛ & ᴛʜᴜᴍʙ ᴍᴀᴋᴇʀ ʙᴏᴛ, ʙᴜɪʟᴛ ᴡɪᴛʜ ᴀʙsᴏʟᴜᴛᴇ ᴘᴇʀꜰᴇᴄᴛɪᴏɴ.</blockquote>
+START_MSG = """<b>›› ʜᴇʏ!!, {mention} ~
 
-<blockquote>❝ ᴅᴏɴ'ᴛ ᴡᴏʀʀʏ, ɪ'ᴍ ᴛʜᴇ sᴛʀᴏɴɢᴇsᴛ. ʏᴏᴜʀ ᴘᴏsᴛᴇʀs ᴀɴᴅ ᴛʜᴜᴍʙɴᴀɪʟs ᴀʀᴇ ɪɴ sᴀꜰᴇ ʜᴀɴᴅs ɴᴏᴡ! ❞</blockquote>
-— ➳≛⃝ 𝐆𝐨𝐣𝐨"""
+<blockquote expandable>You woke me up!\nReady to dive into some chaos and grab what you need?\n\nFiles, fun and a whole lotta energy—let’s roll!.</blockquote></b>"""
 #Force sub message 
 FORCE_MSG = """<b><blockquote>» ʜᴇʏ {mention} ×,</blockquote>\nʏᴏᴜʀ ғɪʟᴇ ɪs ʀᴇᴀᴅʏ ‼️ ʟᴏᴏᴋs ʟɪᴋᴇ ʏᴏᴜ ʜᴀᴠᴇɴ'ᴛ sᴜʙsᴄʀɪʙᴇᴅ ᴛᴏ ᴏᴜʀ ᴄʜᴀɴɴᴇʟs ʏᴇᴛ, sᴜʙsᴄʀɪʙᴇ ɴᴏᴡ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ғɪʟᴇs..!
 </b>"""
