@@ -28,8 +28,8 @@ class Bot(Client):
         self.LOGGER = LOGGER
         self.scheduler = AsyncIOScheduler()
 
-    async def start(self):
-        await super().start()
+    async def start(self, *args, **kwargs):
+        await super().start(*args, **kwargs)
         self.scheduler.start()
         bot_info = await self.get_me()
         self.name = bot_info.first_name

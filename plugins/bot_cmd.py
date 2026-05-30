@@ -25,7 +25,7 @@ cancel_lock = Lock()
 #Settings for banned users..
 @Bot.on_message(banUser & filters.private & filters.command(['start', 'help']))
 async def handle_banuser(client, message):
-    return await message.reply(text=BAN_TXT, message_effect_id=5046589136895476101,)#💩)
+    return await message.reply(text=BAN_TXT,)#💩)
 
 #--------------------------------------------------------------[[ADMIN COMMANDS]]---------------------------------------------------------------------------#
 # Handler for the /cancel command

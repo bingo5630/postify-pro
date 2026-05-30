@@ -5,7 +5,7 @@ import aiohttp
 import urllib.parse
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ParseMode, ButtonStyle
 from pyrogram import StopPropagation
 from bot import Bot
 from databases.database import db
@@ -620,10 +620,22 @@ def parse_anime_buttons(config_str: str, target_link: str) -> InlineKeyboardMark
             parts = btn_str.split('-', 1)
             if len(parts) == 2:
                 btn_text = parts[0].strip()
-                if btn_text.startswith('#'):
+                style = ButtonStyle.DEFAULT
+
+                if btn_text.startswith('#p '):
+                    style = ButtonStyle.PRIMARY
+                    btn_text = btn_text[3:]
+                elif btn_text.startswith('#g '):
+                    style = ButtonStyle.SUCCESS
+                    btn_text = btn_text[3:]
+                elif btn_text.startswith('#r '):
+                    style = ButtonStyle.DANGER
+                    btn_text = btn_text[3:]
+                elif btn_text.startswith('#'):
                     btn_text = btn_text.split(' ', 1)[1] if ' ' in btn_text else btn_text
+
                 btn_url = parts[1].strip().replace('{link}', target_link)
-                row.append(InlineKeyboardButton(btn_text, url=btn_url))
+                row.append(InlineKeyboardButton(btn_text, url=btn_url, style=style))
         if row:
             rows.append(row)
     return InlineKeyboardMarkup(rows) if rows else None

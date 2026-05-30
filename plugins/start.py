@@ -11,7 +11,7 @@ import string
 import string as rohit
 import time
 from pyrogram import Client, filters, __version__
-from pyrogram.enums import ParseMode, ChatAction
+from pyrogram.enums import ParseMode, ChatAction, ButtonStyle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 from plugins.autoDelete import auto_del_notification, delete_message
@@ -196,8 +196,7 @@ async def start_command(client: Client, message: Message):
                             mention=message.from_user.mention,
                             id=message.from_user.id
                         ),
-                        reply_markup=InlineKeyboardMarkup(byt_buttons),
-                        message_effect_id=5104841245755180586
+                        reply_markup=InlineKeyboardMarkup(byt_buttons)
                     )
                     return  # Stop here - user must click 'now click here' again to get files
                 # If already seen for this link, just continue to deliver files
@@ -280,10 +279,10 @@ async def start_command(client: Client, message: Message):
 
     else:
         reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
-                    [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
-                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main')],
-                    [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req')],
+                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about', style=ButtonStyle.PRIMARY)],
+                    [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting', style=ButtonStyle.DANGER),
+                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main', style=ButtonStyle.DANGER)],
+                    [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style=ButtonStyle.SUCCESS)],
                 ])
         await message.reply_photo(
             photo = random.choice(PICS),
@@ -295,8 +294,7 @@ async def start_command(client: Client, message: Message):
                 id = message.from_user.id
             ),
             reply_markup = reply_markup,
-		has_spoiler = True,
-	        message_effect_id=5104841245755180586 #🔥
+		has_spoiler = True
         )
         try: await message.delete()
         except: pass
@@ -387,8 +385,7 @@ async def not_joined(client: Client, message: Message):
                 mention=message.from_user.mention,
                 id=message.from_user.id
             ),
-            reply_markup=InlineKeyboardMarkup(buttons),
-    message_effect_id=5104841245755180586  #🔥 Add the effect ID here
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as e:
         print(f"Error: {e}")  # Print the error message for debugging
