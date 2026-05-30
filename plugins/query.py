@@ -8,6 +8,7 @@ from bot import Bot
 from pyrogram import __version__
 from plugins.FORMATS import *
 from config import *
+from pyrogram import filters
 from pyrogram.enums import ParseMode, ChatAction
 from plugins.autoDelete import convert_time
 from databases.database import db
@@ -139,7 +140,7 @@ async def authoUser(query, id, owner_only=False):
         return True
 
 
-@Bot.on_callback_query()
+@Bot.on_callback_query(~filters.regex(r'^(set_anime|set_manga|set_tvshows|set_movies|post_settings|auto_forward|post_search|settings_main|set_anime_caption|set_anime_buttons|set_anime_template|set_anime_branding|set_anime_font|set_anime_ongoing|set_anime_caption_text|set_anime_buttons_text|set_anime_template_1|set_anime_brand_text|set_anime_brand_logo_url|set_anime_brand_logo_file)$'))
 async def cb_handler(client: Bot, query: CallbackQuery):
     data = query.data
     if data == "close":
@@ -153,6 +154,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         user = await client.get_users(OWNER_ID)
         user_link = f"https://t.me/{user.username}" if user.username else f"tg://openmessage?user_id={OWNER_ID}" 
         ownername = f"<a href={user_link}>{user.first_name}</a>" if user.first_name else f"<a href={user_link}>no name !</a>"
+        from pyrogram.enums import ButtonStyle
         await query.edit_message_media(
             InputMediaPhoto("https://graph.org/file/0c1deac4eae31f7919a9e-255eee8322a7fbecf1.jpg", 
                             ABOUT_TXT.format(
@@ -161,7 +163,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
                             )
             ),
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton('• ʙᴀᴄᴋ', callback_data='start'), InlineKeyboardButton('sᴛᴀᴛs •', callback_data='setting')]
+                [InlineKeyboardButton('• ʙᴀᴄᴋ', callback_data='start', style=ButtonStyle.PRIMARY), InlineKeyboardButton('sᴛᴀᴛs •', callback_data='setting', style=ButtonStyle.DANGER)]
             ]),
         )
                 
@@ -203,6 +205,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
             chnl_butn = 'ᴇɴᴀʙʟᴇᴅ' if await db.get_channel_button() else 'ᴅɪsᴀʙʟᴇᴅ'
             reqfsub = 'ᴇɴᴀʙʟᴇᴅ' if await db.get_request_forcesub() else 'ᴅɪsᴀʙʟᴇᴅ'
 
+            from pyrogram.enums import ButtonStyle
             await query.edit_message_media(
                 InputMediaPhoto(random.choice(PICS),
                                 SETTING_TXT.format(
@@ -217,14 +220,15 @@ async def cb_handler(client: Bot, query: CallbackQuery):
                 )
                 ),
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton('• ʙᴀᴄᴋ', callback_data='start'), InlineKeyboardButton(
-                        'ᴄʟᴏsᴇ •', callback_data='close')]
+                    [InlineKeyboardButton('• ʙᴀᴄᴋ', callback_data='start', style=ButtonStyle.PRIMARY), InlineKeyboardButton(
+                        'ᴄʟᴏsᴇ •', callback_data='close', style=ButtonStyle.PRIMARY)]
                 ]),
             )
         except Exception as e:
             print(f"! Error Occurred on callback data = 'setting' : {e}")
 
     elif data == "start":
+        from pyrogram.enums import ButtonStyle
         await query.edit_message_media(
             InputMediaPhoto(random.choice(PICS),
                             START_MSG.format(
@@ -236,10 +240,10 @@ async def cb_handler(client: Bot, query: CallbackQuery):
             )
             ),
             reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("• ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ •", callback_data='about')],
-                    [InlineKeyboardButton("• sᴇᴛᴛɪɴɢs", callback_data='setting'),
-                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main')],
-                    [InlineKeyboardButton("➕ ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req')],
+                    [InlineKeyboardButton("ᴄʟɪᴄᴋ ғᴏʀ ᴍᴏʀᴇ", callback_data='about', style=ButtonStyle.PRIMARY)],
+                    [InlineKeyboardButton("sᴇᴛᴛɪɴɢs", callback_data='setting', style=ButtonStyle.DANGER),
+                     InlineKeyboardButton('ᴘᴏsᴛᴇʀ', callback_data='settings_main', style=ButtonStyle.DANGER)],
+                    [InlineKeyboardButton("ᴀᴅᴅ ᴄʜᴀɴɴᴇʟ", callback_data='add_channel_req', style=ButtonStyle.SUCCESS)],
                 ]),
         )
 
