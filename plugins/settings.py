@@ -81,9 +81,11 @@ FONT_TEXT = """≡ Current Style: Small Caps
 ◉ CONFIGURE FONT OPTIONS BELOW: ❞"""
 
 # FIX: New Main Settings Image
-TEMPLATE_PIC = "https://ibb.co/p691TdFL"
+TEMPLATE_PIC = "https://telegra.ph/file/e292b12890b8b4b9dcbd1.jpg"
 # FIX: New Template 1 Preview Image
-TEMPLATE_1_PIC = "https://ibb.co/1G9m6Ldz"
+TEMPLATE_1_PIC = "https://telegra.ph/file/e292b12890b8b4b9dcbd1.jpg"
+# Poster 2 Preview Image
+TEMPLATE_2_PIC = "https://telegra.ph/file/e292b12890b8b4b9dcbd1.jpg"
 
 WAIT_MSG = "<blockquote><b>> › > ᴡᴀɪᴛ ᴀ sᴇᴄᴏɴᴅ...</b></blockquote>"
 
@@ -240,6 +242,27 @@ async def anime_template_1_cb(client: Client, query: CallbackQuery):
     text = apply_small_caps("◉ Select Template For Anime") + "\n\n- " + apply_small_caps("Current: Template 1 (Main)")
     try:
         await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_1_PIC, caption=header + text), reply_markup=keyboard)
+    except:
+        pass
+
+@Bot.on_callback_query(filters.regex('^set_anime_template_2$'), group=-1)
+async def anime_template_2_cb(client: Client, query: CallbackQuery):
+    await query.answer("Previewing Poster 2...", show_alert=False)
+    header = get_header("Template Settings")
+    from databases.database import db
+    await db.set_anime_template(query.from_user.id, "Poster 2")
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(apply_small_caps("Template 1 (Main)"), callback_data="set_anime_template_1")],
+        [InlineKeyboardButton(apply_small_caps("✅ Poster 2"), callback_data="set_anime_template_2"), InlineKeyboardButton(apply_small_caps("Poster 3"), callback_data="set_anime_template_3")],
+        [InlineKeyboardButton(apply_small_caps("Poster 4"), callback_data="set_anime_template_4"), InlineKeyboardButton(apply_small_caps("Poster 5"), callback_data="set_anime_template_5")],
+        [InlineKeyboardButton(apply_small_caps("Poster 6"), callback_data="set_anime_template_6"), InlineKeyboardButton(apply_small_caps("Poster 7"), callback_data="set_anime_template_7")],
+        [InlineKeyboardButton(apply_small_caps("Poster 8"), callback_data="set_anime_template_8"), InlineKeyboardButton(apply_small_caps("Poster 9"), callback_data="set_anime_template_9")],
+        [InlineKeyboardButton(apply_small_caps("Back"), callback_data="set_anime")]
+    ])
+    text = apply_small_caps("◉ Select Template For Anime") + "\n\n- " + apply_small_caps("Current: Poster 2")
+    try:
+        await query.edit_message_media(media=InputMediaPhoto(TEMPLATE_2_PIC, caption=header + text), reply_markup=keyboard)
     except:
         pass
 
