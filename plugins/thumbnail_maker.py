@@ -48,11 +48,12 @@ def colorize_template_2(template_img, new_hex):
 
     max_c = np.max(arr[:,:,:3], axis=2)
     min_c = np.min(arr[:,:,:3], axis=2)
-    saturation = max_c - min_c
+    # Avoid division by zero
+    saturation = np.where(max_c == 0, 0, (max_c - min_c) / max_c)
 
-    # Very simple color isolation for turquoise & purple on Template 2
-    # Adjust this threshold as needed based on actual template colors
-    mask = saturation > 30
+    # In Poster 2, everything that has a significant color saturation is either the
+    # default turquoise background elements or the purple button. We want them all to match the theme.
+    mask = saturation > 0.20
 
     arr[:,:,0][mask] = new_r
     arr[:,:,1][mask] = new_g
@@ -100,14 +101,37 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     if template_version == 2 and color_hex:
         base_template = colorize_template_2(base_template, color_hex).convert('RGBA')
 
-    # If Poster 2 AND no custom image is sent (i.e. skipped fanart)
-    # Then DO NOT punch out the mask. The fanart should sit cleanly below without hexagonal cutout.
-    if template_version == 2 and not custom_image_path:
-        anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
-        anime_artwork = enhance_image(anime_artwork)
-        final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
-        final_img.paste(anime_artwork, (0, 0))
-        final_img.paste(base_template, (0, 0), base_template)
+    if template_version == 2:
+        if custom_image_path:
+            # Custom transparent image over turquoise template
+            final_img = base_template.copy()
+            # Try to handle it as a transparent overlay, fit it nicely on the right side if needed,
+            # or just paste it centered. Standard fanart dimensions are 16:9.
+            # But they said: "The character should be placed dynamically over the turquoise base template."
+            # And "support .png files with transparent/erased backgrounds properly (using RGBA alpha compositing)"
+            # Let's fit the character on the right side of the template.
+            # The turquoise template size is 1920x1080.
+
+            # Since it's a character render, resize height to match template height roughly
+            # and paste on the right side
+            char_ratio = anime_img.width / anime_img.height
+            new_height = base_template.height
+            new_width = int(new_height * char_ratio)
+            anime_img_resized = anime_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            # Place on the right, say x = 1920 - new_width (or a bit shifted)
+            paste_x = max(base_template.width - new_width - 100, 500) # Ensure it doesn't overlap text too much
+            paste_y = 0
+
+            # Alpha composite
+            final_img.alpha_composite(anime_img_resized, (paste_x, paste_y))
+        else:
+            # No custom image, fallback to standard fanart image behind the template
+            anime_artwork = ImageOps.fit(anime_img, base_template.size, method=Image.Resampling.LANCZOS)
+            anime_artwork = enhance_image(anime_artwork)
+            final_img = Image.new('RGBA', base_template.size, (0, 0, 0, 255))
+            final_img.paste(anime_artwork, (0, 0))
+            final_img.paste(base_template, (0, 0), base_template)
     else:
         try:
             fetched_mask = Image.open(HEX_MASK_PATH).convert('L')
@@ -240,10 +264,18 @@ async def generate_poster(anime_img_url=None, custom_image_path=None, title="", 
     y_dynamic_offset += 30 if template_version == 2 else 20
     draw.text((x_offset, y_dynamic_offset), genres_caps, font=font_genres, fill=color_hex)
 
-    synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60) 
-    if len(synopsis) > synopsis_dynamic_max_chars:
-        synopsis = synopsis[:synopsis_dynamic_max_chars].rsplit(' ', 1)[0] + "...read more"
-    wrapped_synopsis = textwrap.fill(synopsis, width=45)
+    if template_version == 2:
+        # In Poster 2, the bounding box for synopsis is tighter to fit within the light blue box.
+        # We need a max of around 4 lines, approx 35 characters per line
+        synopsis_dynamic_max_chars = 140 - ((len(title_lines) - 1) * 35)
+        if len(synopsis) > synopsis_dynamic_max_chars:
+            synopsis = synopsis[:synopsis_dynamic_max_chars].rsplit(' ', 1)[0] + "...read more"
+        wrapped_synopsis = textwrap.fill(synopsis, width=38)
+    else:
+        synopsis_dynamic_max_chars = 220 - ((len(title_lines) - 1) * 60)
+        if len(synopsis) > synopsis_dynamic_max_chars:
+            synopsis = synopsis[:synopsis_dynamic_max_chars].rsplit(' ', 1)[0] + "...read more"
+        wrapped_synopsis = textwrap.fill(synopsis, width=45)
 
     y_dynamic_offset += 70 if template_version == 2 else 60
     draw.text((x_offset, y_dynamic_offset), wrapped_synopsis, font=font_synopsis, fill="#D3D3D3")
